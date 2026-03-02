@@ -1,0 +1,268 @@
+#+TITLE: Episode 02 — The Agents Assemble
+#+DATE: 2026-03-02
+#+AUTHOR: vanispe
+
+* Previously, on Interactive Presenter
+
+Last time we had /nothing/. Well, almost nothing — a mission statement
+typed at 11 PM, a three-line tech stack document, and an =AGENTS.md=
+file that basically said "hey future AI, here's how we like our code."
+Two commits. Zero lines of application code. Just vibes and a vision.
+
+Today? We have a working slide viewer. Backend. Frontend. Tests. A
+demo presentation. The whole enchilada. And the way we got here is the
+real story.
+
+* The OpenCode Setup — Herding Digital Cats
+
+Before we talk about what got built, let's talk about /how/ it got
+built, because the setup is half the fun.
+
+The tool of choice is [[https://github.com/opencode-ai/opencode][OpenCode]] — a terminal-based AI coding agent
+that lives in your shell and does your bidding (mostly). It runs on
+Debian inside WSL, because apparently we enjoy computing in layers
+like a software lasagna.
+
+But here's where it gets interesting. OpenCode isn't just one agent —
+it's a whole *squad*. We configured a roster of specialized
+sub-agents, each with their own personality, permissions, and purpose.
+Think of it like assembling a heist crew, except instead of a
+safecracker and a getaway driver, you've got:
+
+** The Agents
+
+*Specifier* — /The Architect/
+- Model: =claude-sonnet-4.6=
+- Temperature: 0.5 (creative enough to think, restrained enough not
+  to hallucinate blueprints for a space elevator)
+- Permissions: Can /write/ files, but cannot edit, run bash, or fetch
+  from the web
+- Job: Study the codebase and produce detailed, language-agnostic
+  specifications. This agent reads the messy human brain dump in
+  =spec/mission_statement.md= and transforms it into a rigorous,
+  implementable spec. It's the one that turned "make a slide thing"
+  into a proper feature document with API contracts, data models, and
+  UI routes.
+- The deliberate restriction to write-only (no editing!) forces the
+  Specifier to produce complete documents from scratch rather than
+  tinkering with existing ones. Clean specs or nothing.
+
+*BackendDeveloper* — /The Plumber/
+- Model: =claude-sonnet-4.6=
+- Temperature: 0.1 (ice cold — we want deterministic, boring,
+  correct code)
+- Permissions: Can edit files freely, must ask before running bash
+  commands
+- Job: Read the specs, write Python. Business logic, API routes, data
+  models, database handling. This is the agent that conjured up the
+  FastAPI application, the Markdown parser, the Pydantic models, and
+  the route handlers.
+
+*FrontendDeveloper* — /The Painter/
+- Model: =claude-sonnet-4.6=
+- Temperature: 0.1 (equally cold — pretty code is still code)
+- Permissions: Same as Backend — edit freely, ask before bash
+- Job: Read the specs, write React. Components, hooks, styles,
+  routing. This agent scaffolded the entire Vite + React + TypeScript
+  frontend, wired up =react-router-dom= for navigation, added
+  =react-markdown= for rendering slide content, and crafted 190 lines
+  of CSS for a sleek dark theme. It even built a proper
+  =useReducer=-based state machine for the slide viewer.
+
+*Committer* — /The Bureaucrat/
+- Model: =claude-sonnet-4.6=
+- Temperature: 0.5
+- Permissions: Full bash access (it needs to =git add=, =git commit=,
+  =git push=)
+- Job: Look at what changed, write a nice commit message, commit and
+  push. That's it. One job. Does it well. The kind of agent you want
+  on your team — no drama, just process.
+
+*Blogger* — /Yours Truly/
+- Model: =claude-opus-4.6= (the big one — because writing is /hard/,
+  apparently)
+- Temperature: 0.5 (warm enough to have a voice, cool enough not to
+  go off the rails)
+- Permissions: Can edit, must ask for bash
+- Job: Read the codebase, read the git history, and write an
+  entertaining blog post about what happened. That's me. Right now.
+  Writing about myself writing. It's turtles all the way down.
+
+** The Commands
+
+OpenCode also has *slash commands* — shortcuts that wire up an agent
+to a specific task:
+
+- =/blog= — Summons the Blogger agent to write the next episode.
+- =/commit= — Dispatches the Committer to review changes and push
+  them upstream.
+- =/specify= — Sends the Specifier off to produce a new spec document.
+
+It's a small but effective workflow. The human has a conversation,
+points agents at tasks, and reviews the output. The =AGENTS.md= file
+acts as the shared constitution — every agent reads it before doing
+anything, so they all agree on code style, project structure, and
+conventions.
+
+* What Actually Got Built
+
+With the crew assembled, here's what went down.
+
+** Step 1: The Specifier Draws the Blueprint
+
+The Specifier agent was unleashed on the raw mission statement and
+produced =spec/slide_viewer.md= — a 163-line feature specification.
+It covers:
+
+- *Presentation format* — How Markdown files are parsed (H1 headings
+  split slides, lines before the first H1 are ignored, trailing
+  whitespace is stripped).
+- *Backend API* — Two endpoints: =GET /api/presentations= (list all
+  decks) and =GET /api/presentations/{id}/slides= (get parsed slides
+  for a deck). Complete with request/response schemas and error codes.
+- *Data models* — =Presentation= (id + title) and =Slide= (index +
+  title + content), specified as tables you could implement in any
+  language.
+- *Frontend routes* — =/= shows a =PresentationList=,
+  =/presentations/:id= shows a =SlideViewer=.
+- *Keyboard navigation* — ArrowRight/Space to advance, ArrowLeft to
+  go back. Clamped at boundaries, no wrap-around.
+- *Visual design* — Dark background (=#1a1a1a=), light text
+  (=#f0f0f0=), full-viewport layout, slide counter in the
+  bottom-right corner.
+- *What's not in scope* — No database, no QR codes, no reactions, no
+  polls, no auth. v1 is just a slide viewer. Disciplined scope.
+
+** Step 2: The BackendDeveloper Lays the Pipes
+
+Armed with the spec, the BackendDeveloper produced:
+
+=pyproject.toml= — A proper Python package with FastAPI and Uvicorn as
+dependencies, plus dev tools (pytest, httpx, ruff, mypy). Python 3.11+
+required.
+
+=backend/models.py= — Two Pydantic models, =Slide= and
+=Presentation=, matching the spec exactly. Clean, documented, typed.
+
+=backend/parser.py= — The heart of the system: a =parse_markdown()=
+function that splits a Markdown string into slides on H1 headings.
+Forty lines of straightforward Python with a helper =_flush()=
+function that trims blank lines from slide bodies. No regex wizardry,
+no third-party Markdown library — just =str.splitlines()= and
+=str.startswith("# ")=. Sometimes the simplest code is the best code.
+
+=backend/routes.py= — Two FastAPI routes wired to an =APIRouter=:
+- =GET /api/presentations= scans the presentations directory for =.md=
+  files and returns their IDs and titles.
+- =GET /api/presentations/{id}/slides= reads a specific file, parses
+  it, and returns the slide list. 404 if the file doesn't exist.
+- The presentations directory is configurable via =PRESENTATIONS_DIR=
+  environment variable, defaulting to =presentations/=.
+
+=backend/main.py= — The FastAPI app entry point. CORS wide open for
+development. Twelve lines of setup. Clean.
+
+=tests/= — *34 test cases* across two files. The parser tests cover
+single slides, multiple slides, empty input, no headings, preamble
+lines, trailing whitespace, blank-only bodies, H2-inside-content,
+fenced code blocks, bold/italic preservation, and parametrized tests
+for non-H1 headings. The route tests use FastAPI's =TestClient= with
+a temporary directory fixture. All green.
+
+** Step 3: The FrontendDeveloper Paints the Screen
+
+The FrontendDeveloper scaffolded a fresh Vite + React + TypeScript
+project and built:
+
+=frontend/src/types.ts= — TypeScript interfaces mirroring the backend
+models.
+
+=frontend/src/api.ts= — A thin API client with =fetchPresentations()=
+and =fetchSlides()=. Proper error handling, =encodeURIComponent= on
+the ID, and typed return values.
+
+=frontend/src/components/PresentationList.tsx= — Fetches the
+presentation list on mount, handles loading/error/empty states
+gracefully, renders clickable links. Uses the =cancelled= flag
+pattern to avoid state updates on unmounted components.
+
+=frontend/src/components/SlideViewer.tsx= — The star of the show:
+- Uses =useReducer= with a proper state machine (=FETCH_START=,
+  =FETCH_SUCCESS=, =FETCH_ERROR=, =NEXT=, =PREV=) instead of a
+  tangle of =useState= hooks.
+- Registers keyboard listeners for ArrowRight, Space, and ArrowLeft.
+  Clamps navigation at boundaries.
+- Renders the current slide's title as an =<h1>= and the body through
+  =react-markdown=.
+- Shows a slide counter ("3 / 12") in the bottom-right corner with an
+  ARIA label for accessibility.
+
+=frontend/src/index.css= — 190 lines of dark-theme CSS. Responsive
+typography using =clamp()=, styled code blocks, blockquotes, lists,
+and a slide counter with =tabular-nums= for non-jittery digit
+rendering.
+
+** Step 4: The Demo Deck
+
+A =presentations/demo.md= file with five slides: a title slide, a
+feature overview, bullet list of key features, a code example showing
+how simple the format is (meta!), and a thank-you slide. Ready to
+present on first boot.
+
+* The Scorecard
+
+| What                    | Status                                   |
+|-------------------------+------------------------------------------|
+| Markdown parser         | Done, with 18 parser tests               |
+| REST API                | Two endpoints, 16 route tests            |
+| React slide viewer      | Keyboard navigation, Markdown rendering  |
+| Presentation list page  | Fetches and links to decks               |
+| Dark-theme styling      | Sleek, responsive, readable              |
+| Demo presentation       | 5 slides, ready to go                    |
+| Commits so far          | 2 (about to be more)                     |
+
+* Reflections
+
+A few things stand out from this session:
+
+*The Specifier pattern works.* Having a dedicated agent whose /only
+job/ is to write specifications — before any code is written — is
+genuinely effective. The spec it produced was detailed enough that the
+Backend and Frontend developers could work from it independently
+without ambiguity.
+
+*Temperature matters.* The coding agents run at 0.1 (nearly
+deterministic), while the creative agents (Blogger, Specifier) run at
+0.5. You want your code to be /boring and correct/. You want your
+specs and blog posts to have /personality/.
+
+*Permissions are guardrails.* The Specifier can only write files, not
+edit or run commands. The coding agents can edit but must ask before
+running bash. The Committer gets full bash access because its whole
+job is =git=. These aren't just trust levels — they're workflow
+constraints that keep each agent in its lane.
+
+*The =AGENTS.md= is the secret weapon.* Every agent reads it. It's
+the shared constitution. Code style, project structure, naming
+conventions, how to run tests — it's all in there. Write it once,
+enforce it everywhere.
+
+* What's Next
+
+The slide viewer works. You can load a Markdown file and click through
+slides with your keyboard. That's v1.
+
+But v1 is just the stage. The audience is still sitting in the dark
+with idle thumbs. Next up:
+
+- *QR code on the first slide* — so the audience can scan and join
+- *WebSocket connection* — real-time communication between phones and
+  the big screen
+- *Emoji reactions* — the thing that started this whole idea
+- *Polls* — multiple choice questions tied to slides, with live bar
+  charts
+
+The agents are warmed up. The spec is written. The tests are green.
+Time to make it interactive.
+
+/Next episode: we add a QR code and give the audience a phone to play with./
