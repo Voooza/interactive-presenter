@@ -1,14 +1,133 @@
+#+TITLE: Episode 01 — The Birth of Interactive Presenter
+#+DATE: 2026-03-02
+#+AUTHOR: vanispe
+
 * What
-** TODO describe what are my plans
+
+The idea is simple: presentations are boring, but phones are fun. So
+what if we made the phone part /of/ the presentation?
+
+*Interactive Presenter* is a web-based presentation tool where:
+
+- You write your slides in plain *Markdown* (level-one headings split
+  the slides — no fiddling with PowerPoint, ever again).
+- The first slide shows a *QR code*. The audience scans it on their
+  phones and lands on a companion page.
+- From that companion page they can:
+  1. *Send emoji reactions* that float up the big screen in real time
+     — think Twitch chat, but in your Monday standup.
+  2. *Answer polls* tied to specific slides. Results show up as bar
+     charts on a subsequent slide, so the speaker can riff on them
+     live.
+  3. *Ask questions* at any time (we track which slide they were on).
+     The speaker addresses them at the end — no more awkward
+     "I had a question three slides ago" moments.
+  4. Maybe more? We'll see where this goes.
+
+The whole point is to hijack the audience's fidgety fingers before
+TikTok does.
+
 * Why
-** TODO Explain why am I doing it
+
+I've sat through enough lifeless slide decks to last several
+lifetimes. You know the scene: someone reads bullet points verbatim
+off a screen while half the room is sneaking peeks at their phones
+under the table. The other half has perfected the art of looking
+attentive while mentally composing their grocery list.
+
+The problem isn't the content — it's the format. One person talks,
+everyone else passively absorbs (or pretends to). There's zero
+feedback loop. The speaker has no idea if people are following along,
+confused, or astral-projecting.
+
+So I thought: what if we just /leaned into/ the phone thing? Instead
+of fighting the distraction, make the phone the participation channel.
+Let the audience react, vote, and ask questions right from their
+pocket rectangles. The speaker gets real-time signal, the audience
+stays engaged, and nobody has to feel guilty about touching their
+phone during a meeting.
+
+Plus I wanted an excuse to build something end-to-end with AI coding
+agents. Which brings us to...
+
 * How
 ** Tooling
+
+The dev setup is intentionally simple:
+
+- *Backend:* Python. It's what I know and it's fast enough for
+  serving slides and collecting reactions over WebSockets.
+- *Frontend:* React. Both for the presenter view (big screen) and the
+  audience companion page.
+- *Database:* SQLite. File-based, zero config, plenty for our needs.
+  No reason to drag Postgres into this until we absolutely have to.
+- *Editor:* Emacs, naturally. (You're reading an Org-mode file. The
+  evidence speaks for itself.)
+- *AI assistant:* [[https://github.com/opencode-ai/opencode][OpenCode]] — a terminal-based AI coding agent. This
+  is going to be my co-pilot for the whole project. I point it at
+  tasks, it writes code, I review, we iterate. The blog is partly
+  about documenting that workflow — what works, what hallucinates,
+  what surprises me.
+
 ** Configuration
+
+Before writing a single line of application code, I set up the
+scaffolding that tells the AI agent /how/ to work on this project:
+
+- *=AGENTS.md=* — a guidelines file that describes the repo structure,
+  code style rules, build commands, and conventions. Think of it as
+  onboarding docs, except the new hire is a language model. It covers
+  everything from Python import ordering to React component patterns.
+  The more precise this file is, the less I have to correct later.
+- *=spec/mission_statement.md=* — the raw, unfiltered brain dump of
+  what this thing should do. Written in the kind of stream-of-consciousness
+  prose you get at 11 PM when the idea is fresh and the
+  inner editor is asleep. It's deliberately rough — the point is to
+  capture intent, not polish.
+- *=spec/tech_stack.md=* — three lines. Python, React, SQLite. That's
+  it. Sometimes the best architectural decision is the one that fits
+  in a tweet.
+
+The spec files are the source of truth. The agent reads them before
+doing anything. It's a surprisingly effective pattern: instead of
+repeating yourself in every prompt, you write it down once and point
+the agent at it.
+
 ** Let's go
 
-So I started debian in WSL and entered my dev directory.
-created new directory called interactive_presenter
-cd into it and write some initial spec...
+So I fired up Debian in WSL, navigated to my dev directory, and got to work:
 
-Let's commit now and see what opencode does next..
+#+begin_src bash
+mkdir interactive_presenter
+cd interactive_presenter
+git init
+#+end_src
+
+Then I wrote the initial spec files by hand — the mission statement
+and tech stack docs. Raw thoughts, no editing. Just getting the vision
+out of my head and into files where an AI agent can read them.
+
+Next came =AGENTS.md=. This one I spent a bit more time on. It's the
+contract between me and the coding agent. Style rules, project
+structure, how to run things. The agent generated most of it based on
+my preferences, but I reviewed every line. You want this file to be
+right — garbage in, garbage out.
+
+Finally, this blog file. Meta, I know. Writing a blog post about
+starting a project, inside the project, before the project does
+anything. But that's the whole idea: document the journey from commit
+zero.
+
+Speaking of which — time for the first commit:
+
+#+begin_src bash
+git add -A
+git commit -m "Initial project scaffolding: specs and blog kickoff"
+#+end_src
+
+One commit. A spec, a guidelines file, and a blog post. No code yet.
+But the foundation is laid: the agent knows what we're building, how
+we like our code, and where to put things.
+
+Next episode: we actually write some code. The agent meets Python.
+Sparks may fly.
