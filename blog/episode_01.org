@@ -1,0 +1,14 @@
+* What
+** TODO describe what are my plans
+* Why
+** TODO Explain why am I doing it
+* How
+** Tooling
+** Configuration
+** Let's go
+
+So I started debian in WSL and entered my dev directory.
+created new directory called interactive_presenter
+cd into it and write some initial spec...
+
+Let's commit now and see what opencode does next..

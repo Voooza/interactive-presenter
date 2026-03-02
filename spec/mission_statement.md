@@ -1,0 +1,19 @@
+# Presentations are boring
+Sitting in a meeting watching some bozo fiddling arround with powerpoint is boring.
+Who would not rather scroll shorts and reels on theor phone?
+
+That is why we want to make the presentations interactive so that the audience can really actively participate in the meeting...
+
+We want to create a we based presentation tool that would not only present the slides...
+but on the first slide there should be a QR code so that the audience can navigate to another webpage with interactive elements
+that would allow the user to interact with the presentation...
+
+We want the users to be able to:
+1. Send reactions (emoji) that would then be visible on the active screen flying from bottom update
+1. Answer multiple choice questions related to particular slides that would then on subsequent slide be shown as barcharts with the answers
+1. Ask questions at any point in time... (we would track which slide they asked on) that the speaker will answer at the end...
+1. Maybe more...
+
+This way we make the audiences fiddly fingers busy with what we want them to be busy with and everyone will have a good time...
+
+The presentation itself should be configurable as a markdown file.. level one headings should serve as separation of slides.
