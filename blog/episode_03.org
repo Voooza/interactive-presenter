@@ -1,0 +1,205 @@
+#+TITLE: Episode 03 — The Parser Ate My Slide (A Bug Story)
+#+DATE: 2026-03-03
+#+AUTHOR: vanispe
+
+* The Bug That Was Hiding in Plain Sight
+
+So there we were. Episode 02 just wrapped. The agents had assembled,
+the slide viewer was working, 34 tests were passing, the CSS was dark
+and moody, and life was good. The blog practically wrote itself a
+victory lap.
+
+And then someone put a code block in their presentation.
+
+Not just /any/ code block. A Markdown code block — you know, the kind
+wrapped in triple backticks — that contained an H1 heading. A perfectly
+reasonable thing to do! You're giving a talk about Markdown, you want to
+show people the syntax, so you type:
+
+#+begin_src markdown
+# Code Example
+
+Here is a sample:
+
+```markdown
+# My First Slide
+
+Hello, world!
+
+# My Second Slide
+
+More content here.
+```
+#+end_src
+
+One slide. Obviously. The code fence wraps around those inner =#=
+headings like a warm blanket. They're /examples/, not structural
+elements. Any human can see that.
+
+The parser could not.
+
+* What Went Wrong
+
+The original =parse_markdown()= function was elegantly simple. Too
+simple, it turns out. Here was the core logic:
+
+#+begin_src python
+for line in content.splitlines():
+    if line.startswith("# "):
+        # New slide!
+        ...
+#+end_src
+
+No context. No memory. Just a line-by-line scan asking "does this
+start with =# =?" and if so, BOOM — new slide. It treated every H1
+heading the same, whether it was sitting in the body of a document or
+buried six layers deep inside a fenced code block.
+
+The result? That one-slide code example above got chopped into /three/
+slides:
+
+1. "Code Example" — with a body ending at the opening =```markdown=
+2. "My First Slide" — a phantom slide born from example text
+3. "My Second Slide" — another phantom, equally unauthorized
+
+The demo presentation didn't expose this because its code block
+contained Python, not Markdown. No stray =#= headings, no problem. It
+was a classic "works on my machine" bug — except the machine was a
+demo file that was too polite to break things.
+
+* The Fix (Seven Lines of Enlightenment)
+
+The BackendDeveloper agent was called back to the crime scene. The
+diagnosis was swift: the parser has no concept of /context/. It
+doesn't know whether it's inside a fenced code block or not.
+
+The fix? A single boolean and a toggle:
+
+#+begin_src python
+in_fenced_block = False
+
+for line in content.splitlines():
+    stripped = line.strip()
+    if stripped.startswith("```") or stripped.startswith("~~~"):
+        in_fenced_block = not in_fenced_block
+
+    if not in_fenced_block and line.startswith("# "):
+        # NOW it's a new slide
+        ...
+#+end_src
+
+That's it. Seven lines of diff (if you count generously). One boolean.
+One toggle. One guard clause.
+
+When the parser encounters a line starting with =```= or =~~~= (the
+two flavours of fenced code block in Markdown), it flips the
+=in_fenced_block= flag. While that flag is =True=, any line that
+starts with =# = is treated as ordinary content — not a slide
+boundary. When the closing fence appears, the flag flips back and
+normal parsing resumes.
+
+Simple? Yes. But that's the thing about parsers — they're either
+context-free or context-aware, and the difference is always one bug.
+
+* The Tests (Three New Ones)
+
+Of course, a bug fix without tests is just a temporary reprieve. The
+agent added three focused test cases:
+
+** =test_h1_inside_fenced_code_block_not_a_slide_break=
+
+The primary crime scene. A Markdown code block containing two H1
+headings inside =```markdown= fences. The test asserts: one slide, not
+three. Both inner headings must appear in the slide's content as
+literal text, untouched.
+
+** =test_h1_inside_tilde_fenced_code_block_not_a_slide_break=
+
+The same scenario but with =~~~= fences instead of backticks, because
+Markdown supports both and you /know/ someone will use tildes just to
+be different. One slide. The rogue heading is content, not structure.
+
+** =test_h1_after_fenced_code_block_is_a_slide_break=
+
+The "make sure we didn't overcorrect" test. An H1 heading that comes
+/after/ a closed code fence should absolutely still split slides. Two
+slides. The parser must exit fenced-block mode properly and resume
+splitting. This is the test that catches the "oops, we never flip the
+boolean back" regression.
+
+Three tests. All green. Forty-seven new lines in the test file,
+because thoroughness is free but regressions are expensive.
+
+* The Anatomy of a Good Bug Fix
+
+Let's take a step back and appreciate what happened here, because it's
+a textbook example of how agent-driven development handles bugs.
+
+1. *The human noticed the problem.* No test caught it because no test
+   was looking for it. The original test suite had a fenced code block
+   test, but it contained Python — no H1 headings, no conflict. The
+   bug lived in the gap between what was tested and what was possible.
+
+2. *The agent diagnosed it fast.* The BackendDeveloper didn't need to
+   =print()= debug or step through with =pdb=. It read the parser,
+   saw the missing state, and knew immediately: fenced blocks aren't
+   tracked.
+
+3. *The fix was minimal.* Seven lines. No refactoring. No new
+   dependencies. No rewriting the parser with a proper AST library.
+   Just the smallest possible change that makes the failing case pass
+   and the existing tests stay green.
+
+4. *The tests were comprehensive.* Three tests covering: the bug
+   itself (backtick fences), the variant (tilde fences), and the
+   guardrail (H1 after a closed fence still works). Past, present, and
+   future all accounted for.
+
+5. *The total changeset is 53 lines.* Readable in two minutes. Code
+   reviewable in one. That's the kind of diff that makes pull request
+   reviewers weep with gratitude.
+
+* The Philosophical Bit
+
+There's something satisfying about a bug that comes from /simplicity/.
+The parser wasn't broken because it was complicated — it was broken
+because it was /naive/. It processed each line in isolation, like
+reading a novel one sentence at a time with no memory of what came
+before. Of course it got confused when the text started quoting itself.
+
+The fix doesn't add complexity so much as it adds /awareness/. One bit
+of state. One question: "Am I inside a code fence right now?" That's
+not complexity — that's context. And context, as any good presenter
+knows, is everything.
+
+* The Scorecard
+
+| What                        | Status                           |
+|-----------------------------+----------------------------------|
+| Fenced code block bug       | Fixed                            |
+| Lines changed in parser     | +7 / -1                          |
+| New test cases              | 3                                |
+| Total test cases            | 37                               |
+| Regressions introduced      | 0                                |
+| Existential crises averted  | 1 (the parser's)                 |
+
+* What's Next
+
+The parser now understands that not every =#= heading is a call to
+action. It has /context/. It can tell the difference between structure
+and quotation, between a command and a conversation.
+
+Which, honestly, is more emotional intelligence than most of the code
+I've written on a Monday morning.
+
+The bug is squashed. The tests are green. The slide viewer is more
+robust than it was yesterday. And somewhere out there, a future
+presenter is going to put a Markdown tutorial inside their Markdown
+slides, and it's going to /just work/. They'll never know. That's the
+best kind of bug fix — the invisible kind.
+
+Back to the roadmap. QR codes and WebSockets are still waiting in the
+wings. But first, the Committer agent has a diff to package up.
+
+/Next episode: we stop fixing things and start building new ones.
+Probably./

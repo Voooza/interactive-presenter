@@ -97,6 +97,53 @@ class TestParseMarkdownEdgeCases:
         assert "```python" in slides[0].content
         assert "print('hello')" in slides[0].content
 
+    def test_h1_inside_fenced_code_block_not_a_slide_break(self) -> None:
+        """H1 headings inside fenced code blocks must not split slides."""
+        md = (
+            "# Code Example\n\n"
+            "Here is a sample:\n\n"
+            "```markdown\n"
+            "# My First Slide\n\n"
+            "Hello, world!\n\n"
+            "# My Second Slide\n\n"
+            "More content here.\n"
+            "```\n"
+        )
+        slides = parse_markdown(md)
+        assert len(slides) == 1
+        assert slides[0].title == "Code Example"
+        assert "# My First Slide" in slides[0].content
+        assert "# My Second Slide" in slides[0].content
+
+    def test_h1_inside_tilde_fenced_code_block_not_a_slide_break(self) -> None:
+        """H1 headings inside ~~~-fenced code blocks must not split slides."""
+        md = (
+            "# Code Example\n\n"
+            "~~~\n"
+            "# Not a slide\n"
+            "~~~\n"
+        )
+        slides = parse_markdown(md)
+        assert len(slides) == 1
+        assert "# Not a slide" in slides[0].content
+
+    def test_h1_after_fenced_code_block_is_a_slide_break(self) -> None:
+        """H1 headings after a closed fenced block should still split slides."""
+        md = (
+            "# First\n\n"
+            "```\n"
+            "# Not a slide\n"
+            "```\n\n"
+            "# Second\n\n"
+            "Body two.\n"
+        )
+        slides = parse_markdown(md)
+        assert len(slides) == 2
+        assert slides[0].title == "First"
+        assert "# Not a slide" in slides[0].content
+        assert slides[1].title == "Second"
+        assert slides[1].content == "Body two."
+
     def test_bold_and_italic_preserved(self) -> None:
         """Inline Markdown formatting survives the parser untouched."""
         md = "# Rich\n\nThis is **bold** and *italic*.\n"

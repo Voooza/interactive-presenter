@@ -21,9 +21,14 @@ def parse_markdown(content: str) -> list[Slide]:
     slides: list[Slide] = []
     current_title: str | None = None
     current_body_lines: list[str] = []
+    in_fenced_block = False
 
     for line in content.splitlines():
-        if line.startswith("# "):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fenced_block = not in_fenced_block
+
+        if not in_fenced_block and line.startswith("# "):
             # Flush the previous slide before starting a new one.
             if current_title is not None:
                 _flush(slides, current_title, current_body_lines)
