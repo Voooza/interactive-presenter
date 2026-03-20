@@ -41,6 +41,37 @@ class PingMessage(BaseModel):
     timestamp: str = Field(default_factory=_utc_now)
 
 
+# Allowed emoji set for reactions.
+ALLOWED_EMOJIS: frozenset[str] = frozenset(
+    {
+        "👍",
+        "👎",
+        "❤️",
+        "😂",
+        "🎉",
+        "🤔",
+        "👏",
+        "🔥",
+        "😮",
+        "🚀",
+    }
+)
+
+
+class ReactionMessage(BaseModel):
+    """Audience member sends an emoji reaction.
+
+    Attributes:
+        type: Always ``"reaction"``.
+        timestamp: ISO 8601 UTC timestamp.
+        emoji: A single emoji from the allowed set.
+    """
+
+    type: str = Field("reaction", pattern="^reaction$")
+    timestamp: str = Field(default_factory=_utc_now)
+    emoji: str
+
+
 # ---------------------------------------------------------------------------
 # Server → Client messages (constructed by server, not validated from input)
 # ---------------------------------------------------------------------------
@@ -122,3 +153,17 @@ class PongPayload(BaseModel):
 
     type: str = "pong"
     timestamp: str = Field(default_factory=_utc_now)
+
+
+class ReactionBroadcastPayload(BaseModel):
+    """Broadcast to the presenter when an audience member reacts.
+
+    Attributes:
+        type: Always ``"reaction_broadcast"``.
+        timestamp: ISO 8601 UTC timestamp.
+        emoji: The emoji that was sent.
+    """
+
+    type: str = "reaction_broadcast"
+    timestamp: str = Field(default_factory=_utc_now)
+    emoji: str

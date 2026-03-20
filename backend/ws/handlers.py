@@ -11,9 +11,12 @@ from pydantic import ValidationError
 
 from backend.ws.connection_manager import ConnectionManager
 from backend.ws.models import (
+    ALLOWED_EMOJIS,
     ErrorPayload,
     NavigateMessage,
     PongPayload,
+    ReactionBroadcastPayload,
+    ReactionMessage,
     SlideChangedPayload,
 )
 from backend.ws.rate_limiter import RateLimiter
@@ -195,9 +198,37 @@ async def _dispatch(
             room.current_slide = nav.slide_index
 
         slide_changed = SlideChangedPayload(slide_index=nav.slide_index)
-        await manager.send_to_audience(
-            presentation_id, slide_changed.model_dump()
-        )
+        await manager.send_to_audience(presentation_id, slide_changed.model_dump())
+
+    elif msg_type == "reaction":
+        if role != "audience":
+            error = ErrorPayload(
+                code="unauthorized",
+                detail="Only audience members can send reactions",
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        try:
+            reaction = ReactionMessage(**data)  # type: ignore[arg-type]
+        except ValidationError as exc:
+            error = ErrorPayload(
+                code="invalid_message",
+                detail=str(exc),
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        if reaction.emoji not in ALLOWED_EMOJIS:
+            error = ErrorPayload(
+                code="invalid_message",
+                detail=f"Emoji not in allowed set: {reaction.emoji}",
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        broadcast = ReactionBroadcastPayload(emoji=reaction.emoji)
+        await manager.send_to_presenter(presentation_id, broadcast.model_dump())
 
     else:
         error = ErrorPayload(
