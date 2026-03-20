@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.ws import handlers as handlers_module
 from backend.ws.models import ALLOWED_EMOJIS
 
 _DEMO_MD = """\
@@ -31,7 +32,11 @@ def presentations_dir(tmp_path: Path) -> Generator[Path, None, None]:
     (tmp_path / "demo.md").write_text(_DEMO_MD, encoding="utf-8")
     old_val = os.environ.get("PRESENTATIONS_DIR")
     os.environ["PRESENTATIONS_DIR"] = str(tmp_path)
+    handlers_module._slides_cache.clear()
+    app.state.connection_manager.rooms.clear()
+    app.state.connection_manager._connections.clear()
     yield tmp_path
+    handlers_module._slides_cache.clear()
     if old_val is None:
         del os.environ["PRESENTATIONS_DIR"]
     else:

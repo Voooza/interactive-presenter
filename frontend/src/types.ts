@@ -89,6 +89,34 @@ export interface ReactionBroadcastMessage {
   emoji: string;
 }
 
+/** A single audience question. */
+export interface QuestionData {
+  id: number;
+  text: string;
+  timestamp: string;
+}
+
+/** Server → Client: confirms a question was received by the submitting audience member. */
+export interface QuestionReceivedMessage {
+  type: 'question_received';
+  timestamp: string;
+  question: QuestionData;
+}
+
+/** Server → Client: full list of questions sent to the presenter. */
+export interface QuestionsListMessage {
+  type: 'questions_list';
+  timestamp: string;
+  questions: QuestionData[];
+}
+
+/** Server → Client: notifies the presenter of a newly submitted question. */
+export interface QuestionNotifyMessage {
+  type: 'question_notify';
+  timestamp: string;
+  question: QuestionData;
+}
+
 /** Union of all server → client messages. */
 export type ServerMessage =
   | ConnectedMessage
@@ -99,7 +127,10 @@ export type ServerMessage =
   | PollOpenedMessage
   | PollResultsMessage
   | PollClosedMessage
-  | ReactionBroadcastMessage;
+  | ReactionBroadcastMessage
+  | QuestionReceivedMessage
+  | QuestionsListMessage
+  | QuestionNotifyMessage;
 
 /** Client → Server: presenter requests a slide change. */
 export interface NavigateMessage {
@@ -129,8 +160,27 @@ export interface ReactionMessage {
   emoji: string;
 }
 
+/** Client → Server: audience member submits a question. */
+export interface QuestionSubmitMessage {
+  type: 'question_submit';
+  timestamp: string;
+  text: string;
+}
+
+/** Client → Server: presenter requests the current list of questions. */
+export interface GetQuestionsMessage {
+  type: 'get_questions';
+  timestamp: string;
+}
+
 /** Union of all client → server messages. */
-export type ClientMessage = NavigateMessage | PingMessage | PollVoteMessage | ReactionMessage;
+export type ClientMessage =
+  | NavigateMessage
+  | PingMessage
+  | PollVoteMessage
+  | ReactionMessage
+  | QuestionSubmitMessage
+  | GetQuestionsMessage;
 
 // ---------------------------------------------------------------------------
 // Emoji reactions — allowed set
@@ -138,14 +188,14 @@ export type ClientMessage = NavigateMessage | PingMessage | PollVoteMessage | Re
 
 /** The fixed, curated set of 10 emojis for v1 reactions. */
 export const ALLOWED_EMOJIS: readonly string[] = [
-  '\u{1F44D}', // 👍 thumbs-up
-  '\u{1F44F}', // 👏 clapping
-  '\u{2764}\u{FE0F}', // ❤️ heart
-  '\u{1F602}', // 😂 laughing
-  '\u{1F62E}', // 😮 surprised
-  '\u{1F525}', // 🔥 fire
-  '\u{1F389}', // 🎉 party
-  '\u{1F914}', // 🤔 thinking
-  '\u{1F4AF}', // 💯 hundred
-  '\u{1F440}', // 👀 eyes
+  '\u{1F44D}', // thumbs-up
+  '\u{1F44F}', // clapping
+  '\u{2764}\u{FE0F}', // heart
+  '\u{1F602}', // laughing
+  '\u{1F62E}', // surprised
+  '\u{1F525}', // fire
+  '\u{1F389}', // party
+  '\u{1F914}', // thinking
+  '\u{1F4AF}', // hundred
+  '\u{1F440}', // eyes
 ] as const;

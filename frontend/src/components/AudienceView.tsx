@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 
 import { fetchSlides } from '../api';
 import { usePolls } from '../hooks/usePolls';
+import { useQuestions } from '../hooks/useQuestions';
 import { useWebSocket } from '../hooks/useWebSocket';
-import type { Slide } from '../types';
+import type { ServerMessage, Slide } from '../types';
 import EmojiReactionBar from './EmojiReactionBar';
 import PollCard from './PollCard';
+
+const MAX_QUESTION_LENGTH = 280;
 
 /**
  * Audience companion page that follows the presenter's slide in real time.
  *
  * Connects as an audience member via WebSocket and updates the displayed
  * slide whenever the presenter navigates. Shows poll vote buttons when
- * the current slide contains a poll.
+ * the current slide contains a poll, and a question submission form for Q&A.
  */
 export default function AudienceView() {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +26,19 @@ export default function AudienceView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { activePoll, markVoted, handleMessage } = usePolls();
+  const [questionText, setQuestionText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const { activePoll, markVoted, handleMessage: handlePollMessage } = usePolls();
+  const { lastConfirmed, handleMessage: handleQuestionMessage } = useQuestions();
+
+  const handleMessage = useCallback(
+    (message: ServerMessage) => {
+      handlePollMessage(message);
+      handleQuestionMessage(message);
+    },
+    [handlePollMessage, handleQuestionMessage],
+  );
 
   const { isConnected, isReconnecting, currentSlide, send, reconnect } = useWebSocket({
     presentationId: id ?? '',
@@ -48,6 +63,25 @@ export default function AudienceView() {
       emoji,
     });
   };
+
+  const handleQuestionSubmit = () => {
+    const trimmed = questionText.trim();
+    if (trimmed.length === 0 || trimmed.length > MAX_QUESTION_LENGTH) return;
+    send({
+      type: 'question_submit',
+      timestamp: new Date().toISOString(),
+      text: trimmed,
+    });
+    setSubmitting(true);
+    setQuestionText('');
+  };
+
+  // Clear the submitting state once the server confirms receipt.
+  useEffect(() => {
+    if (lastConfirmed) {
+      setSubmitting(false);
+    }
+  }, [lastConfirmed]);
 
   useEffect(() => {
     if (!id) return;
@@ -101,6 +135,10 @@ export default function AudienceView() {
   const slideIndex = Math.min(currentSlide, slides.length - 1);
   const slide = slides[slideIndex];
 
+  const charsRemaining = MAX_QUESTION_LENGTH - questionText.length;
+  const canSubmit =
+    questionText.trim().length > 0 && questionText.length <= MAX_QUESTION_LENGTH && !submitting;
+
   return (
     <div className="slide-viewer audience-view">
       {isReconnecting && (
@@ -126,6 +164,37 @@ export default function AudienceView() {
           <PollCard poll={activePoll} onVote={handleVote} />
         )}
       </div>
+
+      <div className="qa-form">
+        <textarea
+          className="qa-textarea"
+          placeholder="Ask a question…"
+          value={questionText}
+          onChange={(e) => setQuestionText(e.target.value)}
+          maxLength={MAX_QUESTION_LENGTH}
+          rows={2}
+          disabled={!isConnected || submitting}
+        />
+        <div className="qa-form-footer">
+          <span
+            className={`qa-char-counter${charsRemaining < 0 ? ' qa-char-over' : charsRemaining <= 30 ? ' qa-char-warn' : ''}`}
+          >
+            {charsRemaining}
+          </span>
+          <button
+            type="button"
+            className="qa-submit-btn"
+            disabled={!canSubmit || !isConnected}
+            onClick={handleQuestionSubmit}
+          >
+            {submitting ? 'Sending…' : 'Send'}
+          </button>
+        </div>
+        {lastConfirmed && (
+          <p className="qa-confirmation">Question submitted!</p>
+        )}
+      </div>
+
       <EmojiReactionBar onReact={handleReact} />
       <div className="slide-footer">
         <div

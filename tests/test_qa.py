@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.ws import handlers as handlers_module
 
 _DEMO_MD = """\
 # Welcome
@@ -35,7 +36,11 @@ def presentations_dir(tmp_path: Path) -> Generator[Path, None, None]:
     (tmp_path / "demo.md").write_text(_DEMO_MD, encoding="utf-8")
     old_val = os.environ.get("PRESENTATIONS_DIR")
     os.environ["PRESENTATIONS_DIR"] = str(tmp_path)
+    handlers_module._slides_cache.clear()
+    app.state.connection_manager.rooms.clear()
+    app.state.connection_manager._connections.clear()
     yield tmp_path
+    handlers_module._slides_cache.clear()
     if old_val is None:
         del os.environ["PRESENTATIONS_DIR"]
     else:
@@ -74,7 +79,9 @@ class TestQuestionSubmitValid:
         with client.websocket_connect("/ws/demo?role=audience") as ws:
             _drain_connect_messages(ws, "audience")
 
-            ws.send_json({"type": "question_submit", "text": "What is the core thesis?"})
+            ws.send_json(
+                {"type": "question_submit", "text": "What is the core thesis?"}
+            )
 
             msg = ws.receive_json()
             assert msg["type"] == "question_received"
@@ -225,7 +232,9 @@ class TestPresenterNotification:
                 _drain_connect_messages(audience_ws, "audience")
                 presenter_ws.receive_json()  # peer_count for audience join
 
-                audience_ws.send_json({"type": "question_submit", "text": "Great talk!"})
+                audience_ws.send_json(
+                    {"type": "question_submit", "text": "Great talk!"}
+                )
 
                 # Audience gets confirmation.
                 audience_ws.receive_json()
@@ -275,11 +284,15 @@ class TestGetQuestions:
                 presenter_ws.receive_json()  # peer_count
 
                 # Submit two questions.
-                audience_ws.send_json({"type": "question_submit", "text": "First question"})
+                audience_ws.send_json(
+                    {"type": "question_submit", "text": "First question"}
+                )
                 audience_ws.receive_json()  # confirmation
                 presenter_ws.receive_json()  # notification
 
-                audience_ws.send_json({"type": "question_submit", "text": "Second question"})
+                audience_ws.send_json(
+                    {"type": "question_submit", "text": "Second question"}
+                )
                 audience_ws.receive_json()  # confirmation
                 presenter_ws.receive_json()  # notification
 
@@ -304,7 +317,9 @@ class TestPresenterConnectAutoList:
         with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
             _drain_connect_messages(audience_ws, "audience")
 
-            audience_ws.send_json({"type": "question_submit", "text": "Before presenter"})
+            audience_ws.send_json(
+                {"type": "question_submit", "text": "Before presenter"}
+            )
             audience_ws.receive_json()  # confirmation (no presenter to notify)
 
             # Now the presenter connects.
@@ -344,7 +359,9 @@ class TestRateLimiting:
             for i in range(3):
                 ws.send_json({"type": "question_submit", "text": f"Question {i + 1}"})
                 msg = ws.receive_json()
-                assert msg["type"] == "question_received", f"Expected success on submit {i + 1}"
+                assert msg["type"] == "question_received", (
+                    f"Expected success on submit {i + 1}"
+                )
 
             # 4th submit should be rate-limited.
             ws.send_json({"type": "question_submit", "text": "One too many"})
@@ -353,7 +370,10 @@ class TestRateLimiting:
             assert error["code"] == "rate_limited"
 
     def test_submit_allowed_after_window_expires(
-        self, client: TestClient, presentations_dir: Path, monkeypatch: pytest.MonkeyPatch
+        self,
+        client: TestClient,
+        presentations_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """After the 60-second window expires, submits are allowed again."""
         import backend.ws.rate_limiter as rl_module

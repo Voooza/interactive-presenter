@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 
 import { fetchSlides } from '../api';
 import { usePolls } from '../hooks/usePolls';
+import { useQuestions } from '../hooks/useQuestions';
 import { useReactions } from '../hooks/useReactions';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { ServerMessage, Slide } from '../types';
@@ -56,17 +57,21 @@ export default function SlideViewer() {
     INITIAL_STATE,
   );
 
+  const [qaOpen, setQaOpen] = useState(false);
+
   const { activePoll, handleMessage: handlePollMessage } = usePolls();
+  const { questions, handleMessage: handleQuestionMessage } = useQuestions();
   const { particles, addReaction } = useReactions();
 
   const handleMessage = useCallback(
     (msg: ServerMessage) => {
       handlePollMessage(msg);
+      handleQuestionMessage(msg);
       if (msg.type === 'reaction_broadcast') {
         addReaction(msg.emoji);
       }
     },
-    [handlePollMessage, addReaction],
+    [handlePollMessage, handleQuestionMessage, addReaction],
   );
 
   const { isConnected, isReconnecting, audienceCount, send, reconnect } = useWebSocket({
@@ -128,6 +133,9 @@ export default function SlideViewer() {
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         goPrev();
+      } else if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
+        setQaOpen((prev) => !prev);
       }
     };
 
@@ -177,12 +185,51 @@ export default function SlideViewer() {
       {activePoll && activePoll.slideIndex === currentIndex && (
         <PollOverlay poll={activePoll} />
       )}
+      {qaOpen && (
+        <div className="qa-panel">
+          <div className="qa-panel-header">
+            <span>Questions ({questions.length})</span>
+            <button
+              type="button"
+              className="qa-panel-close"
+              onClick={() => setQaOpen(false)}
+              aria-label="Close Q&A panel"
+            >
+              &times;
+            </button>
+          </div>
+          <div className="qa-panel-body">
+            {questions.length === 0 ? (
+              <p className="qa-panel-empty">No questions yet.</p>
+            ) : (
+              <ul className="qa-question-list">
+                {questions.map((q) => (
+                  <li key={q.id} className="qa-question-item">
+                    <p className="qa-question-text">{q.text}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
       <ReactionOverlay particles={particles} />
       <div className="slide-footer">
         <div className="slide-counter" aria-label={`Slide ${currentIndex + 1} of ${slides.length}`}>
           {currentIndex + 1} / {slides.length}
         </div>
         <div className="ws-status">
+          <button
+            type="button"
+            className="qa-badge"
+            onClick={() => setQaOpen((prev) => !prev)}
+            title="Toggle Q&A panel (Q)"
+          >
+            Q&amp;A
+            {questions.length > 0 && (
+              <span className="qa-badge-count">{questions.length}</span>
+            )}
+          </button>
           {isReconnecting && <span className="ws-dot ws-reconnecting" title="Reconnecting…" />}
           {!isConnected && !isReconnecting && (
             <span className="ws-disconnected">
