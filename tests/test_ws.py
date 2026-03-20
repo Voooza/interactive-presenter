@@ -88,8 +88,9 @@ class TestConnectionHappyPaths:
     ) -> None:
         """Both a presenter and audience member can connect to the same room."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
-            # Presenter receives connected + peer_count.
+            # Presenter receives connected + questions_list + peer_count.
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -117,6 +118,7 @@ class TestPresenterSlotTaken:
         """A second presenter is rejected with close code 4002."""
         with client.websocket_connect("/ws/demo?role=presenter") as ws1:
             ws1.receive_json()  # connected
+            ws1.receive_json()  # questions_list
             ws1.receive_json()  # peer_count
 
             with (
@@ -147,6 +149,7 @@ class TestAudienceCountBroadcast:
         """Audience count is broadcast when a new audience member joins."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count (audience_count=0)
 
             with client.websocket_connect("/ws/demo?role=audience") as _audience_ws:
@@ -169,6 +172,7 @@ class TestSlideNavigation:
         """Presenter navigate message updates room state and broadcasts."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -219,6 +223,7 @@ class TestDisconnectCountUpdate:
         """Audience count decreases when an audience member disconnects."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:

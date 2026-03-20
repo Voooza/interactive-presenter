@@ -23,7 +23,6 @@ from backend.ws.models import (
     PollVoteMessage,
     PongPayload,
     QuestionData,
-    QuestionNotifyPayload,
     QuestionReceivedPayload,
     QuestionsListPayload,
     QuestionSubmitMessage,
@@ -506,6 +505,7 @@ async def _handle_question_submit(
     question = QuestionData(
         id=question_id,
         text=text,
+        slide_index=room.current_slide,
         timestamp=question_msg.timestamp,
     )
     room.questions.append(question)
@@ -515,7 +515,7 @@ async def _handle_question_submit(
     await websocket.send_json(received.model_dump())
 
     # Notify the presenter.
-    notify = QuestionNotifyPayload(question=question)
+    notify = QuestionReceivedPayload(question=question)
     await manager.send_to_presenter(presentation_id, notify.model_dump())
 
 

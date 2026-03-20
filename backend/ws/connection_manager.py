@@ -179,13 +179,13 @@ class ConnectionManager:
         )
         await websocket.send_json(connected.model_dump())
 
-        # Broadcast updated peer count.
-        await self._broadcast_peer_count(room)
-
-        # Auto-send questions list to presenter on connect.
-        if role == "presenter" and room.questions:
+        # Auto-send questions list to presenter on connect (always, even when empty).
+        if role == "presenter":
             ql = QuestionsListPayload(questions=list(room.questions))
             await websocket.send_json(ql.model_dump())
+
+        # Broadcast updated peer count.
+        await self._broadcast_peer_count(room)
 
         return conn
 

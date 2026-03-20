@@ -131,6 +131,7 @@ class TestPollOpenedOnNavigate:
         """Navigating to a poll slide broadcasts ``poll_opened``."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -160,6 +161,7 @@ class TestPollOpenedOnNavigate:
         """Navigating away from a poll slide broadcasts ``poll_closed``."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             # Navigate to poll slide.
@@ -188,6 +190,7 @@ class TestPollVote:
         """An audience member can vote on an active poll."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -232,6 +235,7 @@ class TestPollVote:
         """
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -274,6 +278,7 @@ class TestPollVote:
         """Voting on a slide that is not the active poll returns an error."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -300,6 +305,7 @@ class TestPollVote:
         """Voting with an out-of-range option index returns an error."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -331,6 +337,7 @@ class TestPollVote:
         """A presenter is rejected when trying to vote."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             # Navigate to poll slide.
@@ -355,6 +362,7 @@ class TestPollVote:
         """Votes from different audience members accumulate correctly."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as aud1:
@@ -411,6 +419,7 @@ class TestPollVotesPreservedAfterClose:
         """Returning to a poll slide shows previous votes in poll_opened."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:

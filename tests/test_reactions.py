@@ -58,6 +58,7 @@ class TestReactionHappyPath:
         """An audience reaction is forwarded as reaction_broadcast to presenter."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -81,6 +82,7 @@ class TestReactionHappyPath:
 
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
@@ -104,6 +106,7 @@ class TestReactionNotForwardedToAudience:
         """Other audience members do not receive reaction_broadcast messages."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             with client.websocket_connect("/ws/demo?role=audience") as audience_ws1:
@@ -139,6 +142,7 @@ class TestReactionRoleEnforcement:
         """Presenter sending a reaction receives an unauthorized error."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
             presenter_ws.receive_json()  # peer_count
 
             presenter_ws.send_json({"type": "reaction", "emoji": "👍"})

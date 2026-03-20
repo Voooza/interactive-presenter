@@ -276,11 +276,13 @@ class QuestionData(BaseModel):
     Attributes:
         id: Unique sequential identifier within the room.
         text: The question text.
+        slide_index: Zero-based slide index when the question was submitted.
         timestamp: ISO 8601 UTC timestamp when the question was submitted.
     """
 
     id: int
     text: str
+    slide_index: int
     timestamp: str
 
 
