@@ -23,6 +23,7 @@ from backend.ws.models import (
     PollVoteMessage,
     PongPayload,
     QuestionData,
+    QuestionNotifyPayload,
     QuestionReceivedPayload,
     QuestionsListPayload,
     QuestionSubmitMessage,
@@ -515,7 +516,7 @@ async def _handle_question_submit(
     await websocket.send_json(received.model_dump())
 
     # Notify the presenter.
-    notify = QuestionReceivedPayload(question=question)
+    notify = QuestionNotifyPayload(question=question)
     await manager.send_to_presenter(presentation_id, notify.model_dump())
 
 

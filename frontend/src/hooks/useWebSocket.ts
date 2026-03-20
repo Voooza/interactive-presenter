@@ -52,6 +52,8 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const manualDisconnectRef = useRef(false);
   const gaveUpRef = useRef(false);
+  /** Guards against state updates after the effect cleanup runs (e.g. StrictMode double-mount). */
+  const mountedRef = useRef(false);
 
   // Keep onMessage ref stable to avoid re-connecting on callback changes.
   const onMessageRef = useRef(onMessage);
@@ -96,6 +98,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (!mountedRef.current) return;
       setIsConnected(true);
       setIsReconnecting(false);
       reconnectAttemptRef.current = 0;
@@ -104,6 +107,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     };
 
     ws.onmessage = (event: MessageEvent) => {
+      if (!mountedRef.current) return;
       let msg: ServerMessage;
       try {
         msg = JSON.parse(event.data as string) as ServerMessage;
@@ -133,6 +137,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     };
 
     ws.onclose = () => {
+      if (!mountedRef.current) return;
       setIsConnected(false);
       clearHeartbeat();
 
@@ -172,10 +177,12 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   }, [connect]);
 
   useEffect(() => {
+    mountedRef.current = true;
     manualDisconnectRef.current = false;
     connect();
 
     return () => {
+      mountedRef.current = false;
       manualDisconnectRef.current = true;
       clearHeartbeat();
       if (reconnectTimeoutRef.current !== null) {

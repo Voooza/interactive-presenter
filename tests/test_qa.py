@@ -224,7 +224,7 @@ class TestPresenterNotification:
     def test_presenter_notified_when_audience_submits(
         self, client: TestClient, presentations_dir: Path
     ) -> None:
-        """Presenter receives question_received when audience submits."""
+        """Presenter receives question_notify when audience submits."""
         with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
             _drain_connect_messages(presenter_ws, "presenter")
 
@@ -241,7 +241,7 @@ class TestPresenterNotification:
 
                 # Presenter gets notification.
                 note = presenter_ws.receive_json()
-                assert note["type"] == "question_received"
+                assert note["type"] == "question_notify"
                 assert note["question"]["text"] == "Great talk!"
 
     def test_no_crash_when_presenter_absent(
