@@ -1,6 +1,40 @@
 """Markdown → slide parser for the Interactive Presenter."""
 
+import re
+
 from backend.models import Slide
+
+_POLL_BLOCK_RE = re.compile(
+    r"<!--\s*poll\s*\n(.*?)\n\s*-->",
+    re.DOTALL,
+)
+
+
+def _extract_poll_options(content: str) -> list[str]:
+    """Extract poll options from ``<!-- poll -->`` HTML comment blocks.
+
+    Each option is a non-empty line inside the comment block, with leading
+    ``-`` or ``*`` list markers stripped.
+
+    Args:
+        content: Raw Markdown body of a slide.
+
+    Returns:
+        List of option strings, or empty list if no poll block found.
+    """
+    match = _POLL_BLOCK_RE.search(content)
+    if match is None:
+        return []
+    raw_lines = match.group(1).splitlines()
+    options: list[str] = []
+    for line in raw_lines:
+        stripped = line.strip()
+        # Strip optional list marker.
+        if stripped.startswith(("-", "*")):
+            stripped = stripped[1:].strip()
+        if stripped:
+            options.append(stripped)
+    return options
 
 
 def parse_markdown(content: str) -> list[Slide]:
@@ -10,6 +44,10 @@ def parse_markdown(content: str) -> list[Slide]:
     opens a new slide whose title is the heading text.  Everything between
     that heading and the next one (or the end of the file) becomes the
     slide's content, with leading and trailing blank lines stripped.
+
+    Poll slides are detected by ``<!-- poll -->`` HTML comment blocks
+    inside the slide body.  The options are extracted and stored in the
+    ``poll_options`` field.
 
     Args:
         content: Raw Markdown text of a presentation file.
@@ -68,4 +106,12 @@ def _flush(
         body_lines.pop()
 
     content = "\n".join(body_lines)
-    slides.append(Slide(index=len(slides), title=title, content=content))
+    poll_options = _extract_poll_options(content)
+    slides.append(
+        Slide(
+            index=len(slides),
+            title=title,
+            content=content,
+            poll_options=poll_options,
+        )
+    )

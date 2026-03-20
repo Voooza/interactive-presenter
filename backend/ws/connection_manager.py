@@ -45,6 +45,28 @@ class _Connection:
 
 
 @dataclass
+class _PollState:
+    """In-memory poll state for a single slide.
+
+    Attributes:
+        slide_index: The slide this poll belongs to.
+        options: List of poll option strings.
+        votes: Vote counts per option (parallel to ``options``).
+        voters: Set of connection ids that have already voted.
+    """
+
+    slide_index: int
+    options: list[str]
+    votes: list[int] = field(default_factory=list)
+    voters: set[int] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        """Initialise vote counts if not already set."""
+        if not self.votes:
+            self.votes = [0] * len(self.options)
+
+
+@dataclass
 class _Room:
     """A logical grouping of connections for a single presentation.
 
@@ -55,6 +77,8 @@ class _Room:
         audience: Set of audience connections.
         created_at: Monotonic timestamp when the room was created.
         grace_task: Handle for the grace-period cleanup task.
+        polls: Poll state keyed by slide index.
+        active_poll: Slide index of the currently active poll, if any.
     """
 
     presentation_id: str
@@ -63,6 +87,8 @@ class _Room:
     audience: set[_Connection] = field(default_factory=set)
     created_at: float = field(default_factory=time.monotonic)
     grace_task: asyncio.Task[None] | None = None
+    polls: dict[int, _PollState] = field(default_factory=dict)
+    active_poll: int | None = None
 
     @property
     def audience_count(self) -> int:

@@ -12,6 +12,17 @@ via *emoji reactions*, polls, Q&A, and more.
 - Navigate with arrow keys or spacebar
 - Audience interaction coming in v2
 
+# Quick Poll
+
+What feature are you most excited about?
+
+<!-- poll
+- Emoji reactions
+- Live polls
+- Q&A
+- All of the above!
+-->
+
 # Code Example
 
 Here is how simple a presentation file is:

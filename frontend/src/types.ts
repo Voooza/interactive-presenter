@@ -9,6 +9,7 @@ export interface Slide {
   index: number;
   title: string;
   content: string;
+  poll_options: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -54,13 +55,43 @@ export interface PongMessage {
   timestamp: string;
 }
 
+/** Server → Client: broadcast when a poll slide is navigated to. */
+export interface PollOpenedMessage {
+  type: 'poll_opened';
+  timestamp: string;
+  slide_index: number;
+  options: string[];
+  results: number[];
+}
+
+/** Server → Client: broadcast when poll votes are updated. */
+export interface PollResultsMessage {
+  type: 'poll_results';
+  timestamp: string;
+  slide_index: number;
+  options: string[];
+  results: number[];
+}
+
+/** Server → Client: broadcast when the presenter navigates away from a poll slide. */
+export interface PollClosedMessage {
+  type: 'poll_closed';
+  timestamp: string;
+  slide_index: number;
+  options: string[];
+  results: number[];
+}
+
 /** Union of all server → client messages. */
 export type ServerMessage =
   | ConnectedMessage
   | SlideChangedMessage
   | PeerCountMessage
   | ErrorMessage
-  | PongMessage;
+  | PongMessage
+  | PollOpenedMessage
+  | PollResultsMessage
+  | PollClosedMessage;
 
 /** Client → Server: presenter requests a slide change. */
 export interface NavigateMessage {
@@ -75,5 +106,13 @@ export interface PingMessage {
   timestamp: string;
 }
 
+/** Client → Server: audience member casts a poll vote. */
+export interface PollVoteMessage {
+  type: 'poll_vote';
+  timestamp: string;
+  slide_index: number;
+  option_index: number;
+}
+
 /** Union of all client → server messages. */
-export type ClientMessage = NavigateMessage | PingMessage;
+export type ClientMessage = NavigateMessage | PingMessage | PollVoteMessage;

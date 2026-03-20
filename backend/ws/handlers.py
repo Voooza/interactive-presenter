@@ -9,11 +9,17 @@ from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from backend.ws.connection_manager import ConnectionManager
+from backend.models import Slide
+from backend.parser import parse_markdown
+from backend.ws.connection_manager import ConnectionManager, _PollState
 from backend.ws.models import (
     ALLOWED_EMOJIS,
     ErrorPayload,
     NavigateMessage,
+    PollClosedPayload,
+    PollOpenedPayload,
+    PollResultsPayload,
+    PollVoteMessage,
     PongPayload,
     ReactionBroadcastPayload,
     ReactionMessage,
@@ -28,6 +34,9 @@ ws_router = APIRouter()
 _DEFAULT_PRESENTATIONS_DIR = "presentations"
 _MAX_MESSAGE_SIZE = 64 * 1024  # 64 KB
 _IDLE_TIMEOUT_DEFAULT = 60
+
+# Cache parsed slides per presentation_id so we don't re-parse on every navigate.
+_slides_cache: dict[str, list[Slide]] = {}
 
 
 def _presentations_dir() -> Path:
@@ -52,6 +61,22 @@ def _presentation_exists(presentation_id: str) -> bool:
     """
     md_file = _presentations_dir() / f"{presentation_id}.md"
     return md_file.is_file()
+
+
+def _get_slides(presentation_id: str) -> list[Slide]:
+    """Return parsed slides for a presentation, using an in-memory cache.
+
+    Args:
+        presentation_id: The presentation identifier (filename stem).
+
+    Returns:
+        A list of Slide objects.
+    """
+    if presentation_id not in _slides_cache:
+        md_file = _presentations_dir() / f"{presentation_id}.md"
+        content = md_file.read_text(encoding="utf-8")
+        _slides_cache[presentation_id] = parse_markdown(content)
+    return _slides_cache[presentation_id]
 
 
 @ws_router.websocket("/ws/{presentation_id}")
@@ -195,7 +220,13 @@ async def _dispatch(
 
         room = manager.get_room(presentation_id)
         if room is not None:
+            old_slide = room.current_slide
             room.current_slide = nav.slide_index
+
+            # Handle poll lifecycle on slide transitions.
+            await _handle_poll_lifecycle(
+                manager, presentation_id, old_slide, nav.slide_index
+            )
 
         slide_changed = SlideChangedPayload(slide_index=nav.slide_index)
         await manager.send_to_audience(presentation_id, slide_changed.model_dump())
@@ -230,9 +261,149 @@ async def _dispatch(
         broadcast = ReactionBroadcastPayload(emoji=reaction.emoji)
         await manager.send_to_presenter(presentation_id, broadcast.model_dump())
 
+    elif msg_type == "poll_vote":
+        if role != "audience":
+            error = ErrorPayload(
+                code="unauthorized",
+                detail="Only audience members can vote",
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        try:
+            vote = PollVoteMessage(**data)  # type: ignore[arg-type]
+        except ValidationError as exc:
+            error = ErrorPayload(
+                code="invalid_message",
+                detail=str(exc),
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        await _handle_poll_vote(manager, websocket, presentation_id, vote)
+
     else:
         error = ErrorPayload(
             code="unknown_type",
             detail=f"Unrecognized message type: {msg_type}",
         )
         await websocket.send_json(error.model_dump())
+
+
+async def _handle_poll_lifecycle(
+    manager: ConnectionManager,
+    presentation_id: str,
+    old_slide: int,
+    new_slide: int,
+) -> None:
+    """Send poll_closed / poll_opened messages on slide transitions.
+
+    Args:
+        manager: The connection manager.
+        presentation_id: The room identifier.
+        old_slide: The slide index being navigated away from.
+        new_slide: The slide index being navigated to.
+    """
+    room = manager.get_room(presentation_id)
+    if room is None:
+        return
+
+    slides = _get_slides(presentation_id)
+
+    # Close poll on the old slide if it was a poll slide.
+    if 0 <= old_slide < len(slides) and slides[old_slide].poll_options:
+        poll_state = room.polls.get(old_slide)
+        if poll_state is not None:
+            closed = PollClosedPayload(
+                slide_index=old_slide,
+                options=poll_state.options,
+                results=list(poll_state.votes),
+            )
+            await manager.broadcast_to_room(presentation_id, closed.model_dump())
+        room.active_poll = None
+
+    # Open poll on the new slide if it is a poll slide.
+    if 0 <= new_slide < len(slides) and slides[new_slide].poll_options:
+        poll_state = room.polls.get(new_slide)
+        if poll_state is None:
+            poll_state = _PollState(
+                slide_index=new_slide,
+                options=slides[new_slide].poll_options,
+            )
+            room.polls[new_slide] = poll_state
+
+        room.active_poll = new_slide
+        opened = PollOpenedPayload(
+            slide_index=new_slide,
+            options=poll_state.options,
+            results=list(poll_state.votes),
+        )
+        await manager.broadcast_to_room(presentation_id, opened.model_dump())
+
+
+async def _handle_poll_vote(
+    manager: ConnectionManager,
+    websocket: WebSocket,
+    presentation_id: str,
+    vote: PollVoteMessage,
+) -> None:
+    """Process a poll vote from an audience member.
+
+    Args:
+        manager: The connection manager.
+        websocket: The voter's WebSocket.
+        presentation_id: The room identifier.
+        vote: The validated vote message.
+    """
+    room = manager.get_room(presentation_id)
+    if room is None:
+        return
+
+    # Check that there is an active poll for the voted slide.
+    if room.active_poll != vote.slide_index:
+        error = ErrorPayload(
+            code="invalid_vote",
+            detail="No active poll for this slide",
+        )
+        await websocket.send_json(error.model_dump())
+        return
+
+    poll_state = room.polls.get(vote.slide_index)
+    if poll_state is None:
+        error = ErrorPayload(
+            code="invalid_vote",
+            detail="Poll not found",
+        )
+        await websocket.send_json(error.model_dump())
+        return
+
+    # Validate option index.
+    if vote.option_index < 0 or vote.option_index >= len(poll_state.options):
+        error = ErrorPayload(
+            code="invalid_vote",
+            detail="Invalid option index",
+        )
+        await websocket.send_json(error.model_dump())
+        return
+
+    # Check for duplicate vote (use id of websocket object).
+    voter_id = id(websocket)
+    if voter_id in poll_state.voters:
+        error = ErrorPayload(
+            code="already_voted",
+            detail="You have already voted on this poll",
+        )
+        await websocket.send_json(error.model_dump())
+        return
+
+    # Record vote.
+    poll_state.voters.add(voter_id)
+    poll_state.votes[vote.option_index] += 1
+
+    # Broadcast updated results to everyone.
+    results = PollResultsPayload(
+        slide_index=vote.slide_index,
+        options=poll_state.options,
+        results=list(poll_state.votes),
+    )
+    await manager.broadcast_to_room(presentation_id, results.model_dump())

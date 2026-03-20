@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.ws import handlers as handlers_module
 
 _DEMO_MD = """\
 # Welcome
@@ -31,7 +32,13 @@ def presentations_dir(tmp_path: Path) -> Generator[Path, None, None]:
     (tmp_path / "demo.md").write_text(_DEMO_MD, encoding="utf-8")
     old_val = os.environ.get("PRESENTATIONS_DIR")
     os.environ["PRESENTATIONS_DIR"] = str(tmp_path)
+    # Clear handler slides cache so tests get fresh data.
+    handlers_module._slides_cache.clear()
+    # Reset connection manager rooms to avoid stale state from prior tests.
+    app.state.connection_manager.rooms.clear()
+    app.state.connection_manager._connections.clear()
     yield tmp_path
+    handlers_module._slides_cache.clear()
     if old_val is None:
         del os.environ["PRESENTATIONS_DIR"]
     else:
@@ -94,43 +101,40 @@ class TestConnectionHappyPaths:
 class TestInvalidPresentation:
     """Tests for connecting to a non-existent presentation."""
 
-    def test_close_code_4001(
-        self, client: TestClient, presentations_dir: Path
-    ) -> None:
+    def test_close_code_4001(self, client: TestClient, presentations_dir: Path) -> None:
         """Connecting to a non-existent presentation returns close code 4001."""
-        with pytest.raises(Exception), client.websocket_connect(  # noqa: B017
-            "/ws/nonexistent?role=presenter"
-        ) as ws:
+        with (
+            pytest.raises(Exception),  # noqa: B017
+            client.websocket_connect("/ws/nonexistent?role=presenter") as ws,
+        ):
             ws.receive_json()
 
 
 class TestPresenterSlotTaken:
     """Tests for the presenter slot enforcement."""
 
-    def test_close_code_4002(
-        self, client: TestClient, presentations_dir: Path
-    ) -> None:
+    def test_close_code_4002(self, client: TestClient, presentations_dir: Path) -> None:
         """A second presenter is rejected with close code 4002."""
         with client.websocket_connect("/ws/demo?role=presenter") as ws1:
             ws1.receive_json()  # connected
             ws1.receive_json()  # peer_count
 
-            with pytest.raises(Exception), client.websocket_connect(  # noqa: B017
-                "/ws/demo?role=presenter"
-            ) as ws2:
+            with (
+                pytest.raises(Exception),  # noqa: B017
+                client.websocket_connect("/ws/demo?role=presenter") as ws2,
+            ):
                 ws2.receive_json()
 
 
 class TestInvalidRole:
     """Tests for invalid role values."""
 
-    def test_close_code_4003(
-        self, client: TestClient, presentations_dir: Path
-    ) -> None:
+    def test_close_code_4003(self, client: TestClient, presentations_dir: Path) -> None:
         """An invalid role returns close code 4003."""
-        with pytest.raises(Exception), client.websocket_connect(  # noqa: B017
-            "/ws/demo?role=admin"
-        ) as ws:
+        with (
+            pytest.raises(Exception),  # noqa: B017
+            client.websocket_connect("/ws/demo?role=admin") as ws,
+        ):
             ws.receive_json()
 
 
@@ -175,10 +179,12 @@ class TestSlideNavigation:
                 presenter_ws.receive_json()  # peer_count
 
                 # Presenter navigates.
-                presenter_ws.send_json({
-                    "type": "navigate",
-                    "slide_index": 1,
-                })
+                presenter_ws.send_json(
+                    {
+                        "type": "navigate",
+                        "slide_index": 1,
+                    }
+                )
 
                 # Audience receives slide_changed.
                 msg = audience_ws.receive_json()

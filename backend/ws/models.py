@@ -72,6 +72,22 @@ class ReactionMessage(BaseModel):
     emoji: str
 
 
+class PollVoteMessage(BaseModel):
+    """Audience member casts a poll vote.
+
+    Attributes:
+        type: Always ``"poll_vote"``.
+        timestamp: ISO 8601 UTC timestamp.
+        slide_index: The poll slide being voted on.
+        option_index: Zero-based index of the chosen option.
+    """
+
+    type: str = Field("poll_vote", pattern="^poll_vote$")
+    timestamp: str = Field(default_factory=_utc_now)
+    slide_index: int
+    option_index: int
+
+
 # ---------------------------------------------------------------------------
 # Server → Client messages (constructed by server, not validated from input)
 # ---------------------------------------------------------------------------
@@ -167,3 +183,57 @@ class ReactionBroadcastPayload(BaseModel):
     type: str = "reaction_broadcast"
     timestamp: str = Field(default_factory=_utc_now)
     emoji: str
+
+
+class PollOpenedPayload(BaseModel):
+    """Sent to all clients when the presenter navigates to a poll slide.
+
+    Attributes:
+        type: Always ``"poll_opened"``.
+        timestamp: ISO 8601 UTC timestamp.
+        slide_index: The slide that contains the poll.
+        options: List of poll option strings.
+        results: Current vote counts per option.
+    """
+
+    type: str = "poll_opened"
+    timestamp: str = Field(default_factory=_utc_now)
+    slide_index: int
+    options: list[str]
+    results: list[int]
+
+
+class PollResultsPayload(BaseModel):
+    """Broadcast to all clients when poll votes are updated.
+
+    Attributes:
+        type: Always ``"poll_results"``.
+        timestamp: ISO 8601 UTC timestamp.
+        slide_index: The slide that contains the poll.
+        options: List of poll option strings.
+        results: Current vote counts per option.
+    """
+
+    type: str = "poll_results"
+    timestamp: str = Field(default_factory=_utc_now)
+    slide_index: int
+    options: list[str]
+    results: list[int]
+
+
+class PollClosedPayload(BaseModel):
+    """Sent to all clients when the presenter navigates away from a poll slide.
+
+    Attributes:
+        type: Always ``"poll_closed"``.
+        timestamp: ISO 8601 UTC timestamp.
+        slide_index: The slide whose poll is closed.
+        options: List of poll option strings.
+        results: Final vote counts per option.
+    """
+
+    type: str = "poll_closed"
+    timestamp: str = Field(default_factory=_utc_now)
+    slide_index: int
+    options: list[str]
+    results: list[int]

@@ -3,14 +3,17 @@ import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 
 import { fetchSlides } from '../api';
+import { usePolls } from '../hooks/usePolls';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { Slide } from '../types';
+import PollCard from './PollCard';
 
 /**
  * Audience companion page that follows the presenter's slide in real time.
  *
  * Connects as an audience member via WebSocket and updates the displayed
- * slide whenever the presenter navigates.
+ * slide whenever the presenter navigates. Shows poll vote buttons when
+ * the current slide contains a poll.
  */
 export default function AudienceView() {
   const { id } = useParams<{ id: string }>();
@@ -19,10 +22,23 @@ export default function AudienceView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { isConnected, isReconnecting, currentSlide, reconnect } = useWebSocket({
+  const { activePoll, markVoted, handleMessage } = usePolls();
+
+  const { isConnected, isReconnecting, currentSlide, send, reconnect } = useWebSocket({
     presentationId: id ?? '',
     role: 'audience',
+    onMessage: handleMessage,
   });
+
+  const handleVote = (slideIndex: number, optionIndex: number) => {
+    send({
+      type: 'poll_vote',
+      timestamp: new Date().toISOString(),
+      slide_index: slideIndex,
+      option_index: optionIndex,
+    });
+    markVoted(slideIndex, optionIndex);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -96,6 +112,9 @@ export default function AudienceView() {
           <div className="slide-body">
             <ReactMarkdown>{slide.content}</ReactMarkdown>
           </div>
+        )}
+        {activePoll && activePoll.slideIndex === slideIndex && (
+          <PollCard poll={activePoll} onVote={handleVote} />
         )}
       </div>
       <div className="slide-footer">

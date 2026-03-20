@@ -10,11 +10,13 @@ class Slide(BaseModel):
         index: Zero-based position in the presentation.
         title: Text of the H1 heading that opens this slide.
         content: Raw Markdown body below the H1 (may be empty).
+        poll_options: List of poll option strings if the slide contains a poll.
     """
 
     index: int
     title: str
     content: str
+    poll_options: list[str] = []
 
 
 class Presentation(BaseModel):

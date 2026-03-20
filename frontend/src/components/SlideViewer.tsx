@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 
 import { fetchSlides } from '../api';
+import { usePolls } from '../hooks/usePolls';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { Slide } from '../types';
+import PollOverlay from './PollOverlay';
 
 interface SlideState {
   slides: Slide[];
@@ -51,9 +53,12 @@ export default function SlideViewer() {
     INITIAL_STATE,
   );
 
+  const { activePoll, handleMessage } = usePolls();
+
   const { isConnected, isReconnecting, audienceCount, send, reconnect } = useWebSocket({
     presentationId: id ?? '',
     role: 'presenter',
+    onMessage: handleMessage,
   });
 
   useEffect(() => {
@@ -152,6 +157,9 @@ export default function SlideViewer() {
           </div>
         )}
       </div>
+      {activePoll && activePoll.slideIndex === currentIndex && (
+        <PollOverlay poll={activePoll} />
+      )}
       <div className="slide-footer">
         <div className="slide-counter" aria-label={`Slide ${currentIndex + 1} of ${slides.length}`}>
           {currentIndex + 1} / {slides.length}
