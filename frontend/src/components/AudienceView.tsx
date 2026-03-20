@@ -6,6 +6,7 @@ import { fetchSlides } from '../api';
 import { usePolls } from '../hooks/usePolls';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { Slide } from '../types';
+import EmojiReactionBar from './EmojiReactionBar';
 import PollCard from './PollCard';
 
 /**
@@ -38,6 +39,14 @@ export default function AudienceView() {
       option_index: optionIndex,
     });
     markVoted(slideIndex, optionIndex);
+  };
+
+  const handleReact = (emoji: string) => {
+    send({
+      type: 'reaction',
+      timestamp: new Date().toISOString(),
+      emoji,
+    });
   };
 
   useEffect(() => {
@@ -117,6 +126,7 @@ export default function AudienceView() {
           <PollCard poll={activePoll} onVote={handleVote} />
         )}
       </div>
+      <EmojiReactionBar onReact={handleReact} />
       <div className="slide-footer">
         <div
           className="slide-counter"

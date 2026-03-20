@@ -118,15 +118,107 @@ body {
 }
 
 /* ─── Slide counter ─────────────────────────────────────────────────────── */
-.slide-counter {
+.slide-footer {
   position: fixed;
-  bottom: 1.5rem;
-  right: 2rem;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+}
+
+.slide-counter {
   font-size: 1rem;
   color: #666;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
   user-select: none;
+}
+
+/* ─── WebSocket status ──────────────────────────────────────────────────── */
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ws-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.ws-reconnecting .ws-dot,
+.ws-dot.ws-reconnecting {
+  background-color: #facc15;
+  animation: ws-pulse 1s ease-in-out infinite;
+}
+
+.ws-dot.ws-lost {
+  background-color: #ef4444;
+}
+
+.ws-disconnected {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ws-reconnect-btn {
+  background: none;
+  border: 1px solid #666;
+  border-radius: 4px;
+  color: #ccc;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ws-reconnect-btn:hover {
+  background-color: #333;
+  border-color: #888;
+}
+
+.ws-audience-count {
+  font-size: 0.875rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Connection banners (audience view) ───────────────────────────────── */
+.audience-view {
+  padding-top: 3rem;
+}
+
+.ws-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 200;
+}
+
+.ws-banner-reconnecting {
+  background-color: #854d0e;
+  color: #fef08a;
+}
+
+.ws-banner-lost {
+  background-color: #7f1d1d;
+  color: #fca5a5;
 }
 
 /* ─── Presentation list ─────────────────────────────────────────────────── */
@@ -317,4 +409,103 @@ body {
   font-size: 0.75rem;
   border-radius: 4px;
   text-transform: uppercase;
+}
+
+/* ─── Emoji reaction bar (audience view) ───────────────────────────────── */
+.reaction-bar {
+  position: fixed;
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background-color: rgba(30, 30, 30, 0.9);
+  border: 1px solid #444;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  z-index: 150;
+}
+
+.reaction-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 1.5rem;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reaction-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.reaction-btn:active {
+  transform: scale(1.3);
+}
+
+/* ─── Reaction overlay (presenter view) ────────────────────────────────── */
+.reaction-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.reaction-particle {
+  position: absolute;
+  bottom: 0;
+  font-size: 2.5rem;
+  animation: reaction-rise 3s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes reaction-rise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* ─── QR code overlay (presenter view, first slide only) ───────────────── */
+.qr-overlay {
+  position: fixed;
+  bottom: 4rem;
+  left: 2rem;
+  z-index: 100;
+}
+
+.qr-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: rgba(30, 30, 30, 0.95);
+  border: 1px solid #444;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.qr-url-label {
+  font-size: 0.75rem;
+  color: #888;
+  text-align: center;
+  word-break: break-all;
+  max-width: 220px;
 }

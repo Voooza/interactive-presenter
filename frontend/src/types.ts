@@ -82,6 +82,13 @@ export interface PollClosedMessage {
   results: number[];
 }
 
+/** Server → Client: broadcast when an audience member sends an emoji reaction. */
+export interface ReactionBroadcastMessage {
+  type: 'reaction_broadcast';
+  timestamp: string;
+  emoji: string;
+}
+
 /** Union of all server → client messages. */
 export type ServerMessage =
   | ConnectedMessage
@@ -91,7 +98,8 @@ export type ServerMessage =
   | PongMessage
   | PollOpenedMessage
   | PollResultsMessage
-  | PollClosedMessage;
+  | PollClosedMessage
+  | ReactionBroadcastMessage;
 
 /** Client → Server: presenter requests a slide change. */
 export interface NavigateMessage {
@@ -114,5 +122,30 @@ export interface PollVoteMessage {
   option_index: number;
 }
 
+/** Client → Server: audience member sends an emoji reaction. */
+export interface ReactionMessage {
+  type: 'reaction';
+  timestamp: string;
+  emoji: string;
+}
+
 /** Union of all client → server messages. */
-export type ClientMessage = NavigateMessage | PingMessage | PollVoteMessage;
+export type ClientMessage = NavigateMessage | PingMessage | PollVoteMessage | ReactionMessage;
+
+// ---------------------------------------------------------------------------
+// Emoji reactions — allowed set
+// ---------------------------------------------------------------------------
+
+/** The fixed, curated set of 10 emojis for v1 reactions. */
+export const ALLOWED_EMOJIS: readonly string[] = [
+  '\u{1F44D}', // 👍 thumbs-up
+  '\u{1F44F}', // 👏 clapping
+  '\u{2764}\u{FE0F}', // ❤️ heart
+  '\u{1F602}', // 😂 laughing
+  '\u{1F62E}', // 😮 surprised
+  '\u{1F525}', // 🔥 fire
+  '\u{1F389}', // 🎉 party
+  '\u{1F914}', // 🤔 thinking
+  '\u{1F4AF}', // 💯 hundred
+  '\u{1F440}', // 👀 eyes
+] as const;

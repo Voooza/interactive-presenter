@@ -4,9 +4,12 @@ import ReactMarkdown from 'react-markdown';
 
 import { fetchSlides } from '../api';
 import { usePolls } from '../hooks/usePolls';
+import { useReactions } from '../hooks/useReactions';
 import { useWebSocket } from '../hooks/useWebSocket';
-import type { Slide } from '../types';
+import type { ServerMessage, Slide } from '../types';
 import PollOverlay from './PollOverlay';
+import { QRCodeOverlay } from './QRCodeOverlay';
+import ReactionOverlay from './ReactionOverlay';
 
 interface SlideState {
   slides: Slide[];
@@ -53,7 +56,18 @@ export default function SlideViewer() {
     INITIAL_STATE,
   );
 
-  const { activePoll, handleMessage } = usePolls();
+  const { activePoll, handleMessage: handlePollMessage } = usePolls();
+  const { particles, addReaction } = useReactions();
+
+  const handleMessage = useCallback(
+    (msg: ServerMessage) => {
+      handlePollMessage(msg);
+      if (msg.type === 'reaction_broadcast') {
+        addReaction(msg.emoji);
+      }
+    },
+    [handlePollMessage, addReaction],
+  );
 
   const { isConnected, isReconnecting, audienceCount, send, reconnect } = useWebSocket({
     presentationId: id ?? '',
@@ -157,9 +171,13 @@ export default function SlideViewer() {
           </div>
         )}
       </div>
+      {currentIndex === 0 && id && (
+        <QRCodeOverlay url={`${window.location.origin}/audience/${id}`} />
+      )}
       {activePoll && activePoll.slideIndex === currentIndex && (
         <PollOverlay poll={activePoll} />
       )}
+      <ReactionOverlay particles={particles} />
       <div className="slide-footer">
         <div className="slide-counter" aria-label={`Slide ${currentIndex + 1} of ${slides.length}`}>
           {currentIndex + 1} / {slides.length}
