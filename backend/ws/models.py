@@ -45,15 +45,15 @@ class PingMessage(BaseModel):
 ALLOWED_EMOJIS: frozenset[str] = frozenset(
     {
         "👍",
-        "👎",
+        "👏",
         "❤️",
         "😂",
+        "😮",
+        "🔥",
         "🎉",
         "🤔",
-        "👏",
-        "🔥",
-        "😮",
-        "🚀",
+        "💯",
+        "👀",
     }
 )
 

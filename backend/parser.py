@@ -107,6 +107,10 @@ def _flush(
 
     content = "\n".join(body_lines)
     poll_options = _extract_poll_options(content)
+    # Strip the poll block from visible content so it doesn't render
+    # as raw markdown alongside the PollCard / PollOverlay components.
+    if poll_options:
+        content = _POLL_BLOCK_RE.sub("", content).strip()
     slides.append(
         Slide(
             index=len(slides),
