@@ -117,26 +117,14 @@ class TestParseMarkdownEdgeCases:
 
     def test_h1_inside_tilde_fenced_code_block_not_a_slide_break(self) -> None:
         """H1 headings inside ~~~-fenced code blocks must not split slides."""
-        md = (
-            "# Code Example\n\n"
-            "~~~\n"
-            "# Not a slide\n"
-            "~~~\n"
-        )
+        md = "# Code Example\n\n~~~\n# Not a slide\n~~~\n"
         slides = parse_markdown(md)
         assert len(slides) == 1
         assert "# Not a slide" in slides[0].content
 
     def test_h1_after_fenced_code_block_is_a_slide_break(self) -> None:
         """H1 headings after a closed fenced block should still split slides."""
-        md = (
-            "# First\n\n"
-            "```\n"
-            "# Not a slide\n"
-            "```\n\n"
-            "# Second\n\n"
-            "Body two.\n"
-        )
+        md = "# First\n\n```\n# Not a slide\n```\n\n# Second\n\nBody two.\n"
         slides = parse_markdown(md)
         assert len(slides) == 2
         assert slides[0].title == "First"
