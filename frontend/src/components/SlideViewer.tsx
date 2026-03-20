@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 
 import { fetchSlides } from '../api';
+import { useWebSocket } from '../hooks/useWebSocket';
 import type { Slide } from '../types';
 
 interface SlideState {
@@ -50,6 +51,11 @@ export default function SlideViewer() {
     INITIAL_STATE,
   );
 
+  const { isConnected, isReconnecting, audienceCount, send, reconnect } = useWebSocket({
+    presentationId: id ?? '',
+    role: 'presenter',
+  });
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -75,6 +81,25 @@ export default function SlideViewer() {
 
   const goNext = useCallback(() => dispatch({ type: 'NEXT' }), []);
   const goPrev = useCallback(() => dispatch({ type: 'PREV' }), []);
+
+  // Send navigate messages when slide index changes (after user navigates).
+  const sendNavigate = useCallback(
+    (slideIndex: number) => {
+      send({
+        type: 'navigate',
+        timestamp: new Date().toISOString(),
+        slide_index: slideIndex,
+      });
+    },
+    [send],
+  );
+
+  // Send navigate message whenever currentIndex changes (and slides are loaded).
+  useEffect(() => {
+    if (slides.length > 0 && isConnected) {
+      sendNavigate(currentIndex);
+    }
+  }, [currentIndex, slides.length, isConnected, sendNavigate]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -127,8 +152,26 @@ export default function SlideViewer() {
           </div>
         )}
       </div>
-      <div className="slide-counter" aria-label={`Slide ${currentIndex + 1} of ${slides.length}`}>
-        {currentIndex + 1} / {slides.length}
+      <div className="slide-footer">
+        <div className="slide-counter" aria-label={`Slide ${currentIndex + 1} of ${slides.length}`}>
+          {currentIndex + 1} / {slides.length}
+        </div>
+        <div className="ws-status">
+          {isReconnecting && <span className="ws-dot ws-reconnecting" title="Reconnecting…" />}
+          {!isConnected && !isReconnecting && (
+            <span className="ws-disconnected">
+              <span className="ws-dot ws-lost" title="Connection lost" />
+              <button type="button" className="ws-reconnect-btn" onClick={reconnect}>
+                Reconnect
+              </button>
+            </span>
+          )}
+          {isConnected && (
+            <span className="ws-audience-count" title="Audience members connected">
+              {audienceCount} viewer{audienceCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

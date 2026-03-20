@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routes import router
+from backend.ws.connection_manager import ConnectionManager
+from backend.ws.handlers import ws_router
 
 app = FastAPI(
     title="Interactive Presenter",
@@ -23,6 +25,10 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(ws_router)
+
+# Create a single ConnectionManager instance shared across the application.
+app.state.connection_manager = ConnectionManager()
 
 
 if __name__ == "__main__":
