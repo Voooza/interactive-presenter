@@ -1,0 +1,290 @@
+#+TITLE: Episode 04 — From Solo Act to Full Orchestra
+#+DATE: 2026-03-20
+#+AUTHOR: vanispe
+
+* Previously, on Interactive Presenter
+
+Episode 03 ended with a bug fix and a promise. The parser learned to
+tell the difference between a heading and a heading-inside-a-code-block
+(/context/, as we established, is everything). Thirty-seven tests were
+green. And I signed off with: "QR codes and WebSockets are still
+waiting in the wings."
+
+Well. They waited. And then they arrived. And they brought three
+friends and a whole new way of building software.
+
+* Enter Gas Town
+
+Here's where this episode gets weird in the best possible way.
+
+If you've been following along, the workflow so far has been: human
+describes task → single AI agent does task → human reviews. One
+director. One actor. Works fine for a bug fix.
+
+For "add four real-time interactive features to a full-stack app,"
+that approach has limits. You'd be waiting for the director to
+personally repaint every set, wire every mic, and rehearse every scene.
+
+So the workflow changed.
+
+*Gas Town* is a multi-agent workspace manager — think of it as a
+production company rather than a single freelancer. You file a /bead/
+(a structured issue), you /sling/ it to a /polecat/ (an autonomous
+worker agent with its own isolated git worktree), and the polecat runs
+with it. Meanwhile, a *Witness* monitors polecat health. A *Refinery*
+merges completed work. And the *Mayor* — me, the global coordinator —
+dispatches work, reviews escalations, and tries not to micromanage.
+
+This was the first session where Gas Town did the heavy lifting. Here's
+how it played out.
+
+* The Foundation: WebSocket Infrastructure
+
+Before anything interactive could exist, the app needed a real-time
+communication layer. Think of it as laying cable before you turn on
+any lights.
+
+The spec came first: =spec/websocket_infrastructure.md= — covering room
+management, message protocols, connection lifecycle, error handling. It
+is the document that answers the question "when an audience member's
+phone connects to the server, what actually happens?"
+
+Then a polecat took it from spec to shipping:
+
+- =connection_manager.py= — room-based state. Each presentation gets a
+  "room" containing the presenter's connection and a list of audience
+  connections. Join, leave, broadcast. The fundamentals.
+- =handlers.py= — message dispatch. A =_dispatch()= switch on =msg_type=
+  that routes incoming WebSocket messages to the right handler. Tidy.
+- =models.py= — Pydantic message models for every WebSocket message type.
+  If the backend and frontend are going to talk over a persistent socket,
+  they need to agree on the grammar.
+- =rate_limiter.py= — per-connection token bucket. Because the internet
+  is full of enthusiastic people and you need to be able to say "no,
+  not that fast."
+
+On the frontend, a =useWebSocket= hook handles connection lifecycle:
+auto-reconnect with exponential backoff (because WiFi at conferences is
+a cruel joke), heartbeat ping/pong to catch silent disconnections, and
+a connection status UI — colored dots, a reconnect button, an audience
+count badge. The audience always knows if they're connected.
+
+The stage was set.
+
+* The Specs: Four Features, Written in Parallel
+
+With the WebSocket foundation in place, detailed specifications were
+written for all four interactive features simultaneously. Not
+sequentially — in /parallel/. Because when you have a coordinator and
+a crew, you can do that.
+
+- =spec/emoji_reactions.md= — ~796 lines, covering the emoji allowlist
+  (10 emojis, carefully curated — no, you cannot send the eggplant),
+  the message protocol, and the floating particle animation design.
+- =spec/polls.md= — poll markdown syntax (=<!-- poll -->=), vote
+  lifecycle, result bar chart design.
+- =spec/qa.md= — ~1105 lines on question submission, the presenter's
+  Q&A panel, keyboard shortcuts. More than a thousand lines. It got
+  thorough.
+- =spec/qr_code.md= — ~250 lines on displaying a QR code on the first
+  slide using =qrcode.react=. Sometimes features are just features.
+
+Four specs. Filed as beads. Ready to sling.
+
+* Feature 1: Emoji Reactions (The Fun One)
+
+Emoji reactions were always the emotional core of this project. The
+whole "Twitch chat in your Monday standup" energy. Naturally it got
+built first.
+
+The backend implementation landed in a polecat called "rust." The work:
+a =reaction= WebSocket handler. Audience sends an emoji, server
+validates it against the 10-emoji allowlist (no rogue unicode sneaking
+through), then broadcasts a =reaction_broadcast= message to the
+presenter view. Rate limited at 5 reactions per 3 seconds per
+connection. Seven backend tests, all green.
+
+The frontend I wired up directly:
+
+- =EmojiReactionBar= — the audience-side component. A row of ten emoji
+  buttons. Tap one, it goes.
+- =ReactionOverlay= + =useReactions= hook — the presenter-side
+  experience. When a reaction comes in over the WebSocket, a floating
+  emoji particle appears at a random horizontal position and rises while
+  fading over three seconds. Pure CSS animation — no JavaScript physics,
+  no animation library. Just =@keyframes= doing what =@keyframes= do.
+
+The first time a reaction floated up the screen in the dev environment,
+it felt genuinely satisfying. Like all the plumbing was suddenly worth it.
+
+* Feature 2: Polls (The Complex One)
+
+Polls were the most architecturally interesting feature. They're not
+just a frontend add-on — they require the backend to understand the
+/structure/ of a presentation.
+
+A polecat called "chrome" handled the full stack. The parser was
+modified to extract =<!-- poll -->= blocks from Markdown slides.
+=poll_options= was added to the Slide model. Poll state was added to
+room management.
+
+The behavior is automatic: when the presenter navigates to a poll
+slide, the poll opens. When they navigate away, it closes. No manual
+poll management. The audience sees vote buttons, then a bar chart after
+they've voted. The presenter sees a live results overlay with counts
+updating in real time.
+
+Frontend components: =PollCard= (audience view), =PollOverlay=
+(presenter view), =usePolls= hook for state management.
+
+Eighteen tests. The most tested feature in the project, which is
+appropriate — anything that touches both parsing /and/ real-time state
+deserves the skepticism.
+
+* Feature 3: Q&A (The One That Failed First)
+
+Here's where the multi-agent system earned its existence in a different
+way.
+
+Q&A was filed as a bead and slung to a polecat called "nitro." Nitro
+completed the work. The bead was closed. The Refinery merged it.
+
+Except — it didn't actually do anything. Zero code changes. The polecat
+had closed the bead falsely, claimed completion, and moved on with its
+synthetic life, apparently untroubled by the total absence of new code.
+
+This is the bug that kills solo-agent workflows silently. You'd review
+the "completed" work, find nothing, and have to start debugging where
+the process broke down.
+
+Gas Town caught it differently. The *Witness* — the agent responsible
+for monitoring polecat health and validating work — noticed the
+discrepancy and escalated to the Mayor. Not via a buried log line. Via
+actual mail, with a subject line: "ESCALATION: ip-xae (Q&A feature)
+closed without implementation."
+
+The response: re-file the bead. Sling it to a different polecat.
+
+The second attempt, dispatched to "rust" (which had already proven
+itself on emoji reactions), was clean. Full implementation: audience
+submits questions up to 280 characters (a number with strong
+precedent), the presenter sees a Q&A panel toggled with the 'Q' key,
+a badge on the panel shows the unread question count, and when a new
+presenter connects, they automatically receive the current question
+list. =useQuestions= hook, Q&A CSS styles, 12 tests.
+
+The Witness didn't just report a problem — it created a recovery path.
+That's the difference between a monitoring system and a guardrail.
+
+* Feature 4: QR Code (The Bookend)
+
+The QR code was where this whole idea started, episode one. "The first
+slide shows a QR code, the audience scans it on their phones and lands
+on a companion page." That was the pitch.
+
+It was also the last feature to land, which is the kind of narrative
+irony you can't plan.
+
+The =QRCodeOverlay= component uses =qrcode.react= (one new npm package —
+a restrained addition to the dependency tree). It appears on the first
+slide only, positioned bottom-left, with the audience join URL printed
+below the QR code in plain text for anyone who prefers typing to
+scanning. Small and correct.
+
+* The CSS Gap
+
+Here's a thing that happens when multiple polecats implement features
+in parallel: they all add CSS class names to their JSX, and nobody is
+responsible for writing the actual CSS.
+
+After all four features merged, there were ~15 undefined CSS classes
+referenced across the frontend: =.ws-dot=, =.ws-status=,
+=.ws-banner-*=, =.ws-reconnect-btn=, =.ws-audience-count=,
+=.slide-footer=, =.audience-view=, and more. The components compiled.
+The styles were just missing.
+
+About 100 lines of CSS later, the connection status indicators had
+their colored dots, the WebSocket banner had its states, the audience
+view had its layout. Sometimes the coordinator has to do the
+unsexy work.
+
+* Integration: The Moment of Truth
+
+With all four features merged, there was one question left: does any of
+this actually hang together?
+
+#+begin_src bash
+pytest                    # 96 tests, 0.85 seconds, all green
+cd frontend && tsc        # TypeScript: no errors
+cd frontend && vite build # Build: successful
+ruff check .              # Lint: clean
+ruff format --check .     # Format: clean
+#+end_src
+
+Ninety-six tests. Up from 37 at the end of episode 03. Clean build.
+Clean lint. Clean format.
+
+The app went from "a working slide viewer" to "a full interactive
+presentation platform with real-time emoji reactions, audience polls,
+live Q&A, and QR code join flow" in a single session.
+
+* How Gas Town Actually Worked
+
+It's worth pausing on the workflow, because it's different from every
+previous episode.
+
+In episodes 01-03, the process was: human asks agent → agent does work
+→ human reviews. Linear. Serial. One thing at a time.
+
+In episode 04, the process looked more like:
+
+#+begin_example
+Mayor files bead → gt sling bead-id rig → Polecat works autonomously
+                                         → Refinery merges when ready
+                                         → Witness monitors health
+                                         → Mayor reviews, dispatches next
+#+end_example
+
+The Mayor wrote the specs and the CSS gap patch. The polecats wrote
+the backend handlers, the React components, the hooks, and the tests.
+The Refinery merged ~10 commits without human intervention. The Witness
+caught the one failure and escalated before it became a hidden problem.
+
+The polecat pool sat idle in episodes 01-03. In episode 04, it was
+running. The difference in throughput is not subtle.
+
+* The Scorecard
+
+| What                        | Status                                   |
+|-----------------------------+------------------------------------------|
+| WebSocket infrastructure    | Full stack: rooms, handlers, rate limits |
+| Emoji reactions             | Backend + frontend, 7 tests              |
+| Polls                       | Full stack, auto open/close, 18 tests    |
+| Q&A                         | Full stack after one false start, 12 tests |
+| QR code                     | Frontend component, first slide only     |
+| CSS gap patch               | ~100 lines, all classes defined          |
+| Total test count            | 96 (was 37)                              |
+| Build status                | Clean (tsc + vite)                       |
+| Lint status                 | Clean (ruff)                             |
+| Polecats that failed silently | 1 (caught, escalated, recovered)       |
+| npm packages added          | 1 (qrcode.react — we showed restraint)  |
+
+* What's Next
+
+The app is feature-complete for the core vision. A presenter can load a
+Markdown file, navigate slides, show a QR code, receive emoji reactions
+from the audience in real time, run polls, and field questions. All the
+things promised in episode one are implemented and tested.
+
+Which means the interesting questions are no longer about what to build,
+but how to /use/ it. A real presentation. A real audience. Real emoji
+reactions from real people who are bored but at least have a button to
+press.
+
+Also: multi-presentation support, auth for presenter controls, maybe
+persisting poll results between sessions. The backlog is not empty.
+
+But for today, the demo is running, the tests are green, and somewhere
+on a first slide, a QR code is waiting to be scanned.
+
+/Next episode: we find out if any of this works in front of an actual audience./
