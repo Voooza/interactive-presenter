@@ -513,7 +513,7 @@ body {
 /* ─── Q&A form (audience view) ─────────────────────────────────────────── */
 .qa-form {
   position: fixed;
-  bottom: 4rem;
+  bottom: 8rem;
   left: 50%;
   transform: translateX(-50%);
   width: min(90vw, 500px);

@@ -76,6 +76,15 @@ export default function AudienceView() {
     setQuestionText('');
   };
 
+  const handleQuestionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (canSubmit && isConnected) {
+        handleQuestionSubmit();
+      }
+    }
+  };
+
   // Clear the submitting state once the server confirms receipt.
   useEffect(() => {
     if (lastConfirmed) {
@@ -171,6 +180,7 @@ export default function AudienceView() {
           placeholder="Ask a question…"
           value={questionText}
           onChange={(e) => setQuestionText(e.target.value)}
+          onKeyDown={handleQuestionKeyDown}
           maxLength={MAX_QUESTION_LENGTH}
           rows={2}
           disabled={!isConnected || submitting}
