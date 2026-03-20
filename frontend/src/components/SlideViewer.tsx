@@ -180,7 +180,7 @@ export default function SlideViewer() {
         )}
       </div>
       {currentIndex === 0 && id && (
-        <QRCodeOverlay url={`${window.location.origin}/audience/${id}`} />
+        <QRCodeOverlay url={`${window.location.origin}/presentations/${id}/audience`} />
       )}
       {activePoll && activePoll.slideIndex === currentIndex && (
         <PollOverlay poll={activePoll} />
