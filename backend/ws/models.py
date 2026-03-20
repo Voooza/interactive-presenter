@@ -88,6 +88,32 @@ class PollVoteMessage(BaseModel):
     option_index: int
 
 
+class QuestionSubmitMessage(BaseModel):
+    """Audience member submits a question.
+
+    Attributes:
+        type: Always ``"question_submit"``.
+        timestamp: ISO 8601 UTC timestamp.
+        text: The question text (1–280 characters).
+    """
+
+    type: str = Field("question_submit", pattern="^question_submit$")
+    timestamp: str = Field(default_factory=_utc_now)
+    text: str
+
+
+class GetQuestionsMessage(BaseModel):
+    """Presenter requests the current list of questions.
+
+    Attributes:
+        type: Always ``"get_questions"``.
+        timestamp: ISO 8601 UTC timestamp.
+    """
+
+    type: str = Field("get_questions", pattern="^get_questions$")
+    timestamp: str = Field(default_factory=_utc_now)
+
+
 # ---------------------------------------------------------------------------
 # Server → Client messages (constructed by server, not validated from input)
 # ---------------------------------------------------------------------------
@@ -237,3 +263,64 @@ class PollClosedPayload(BaseModel):
     slide_index: int
     options: list[str]
     results: list[int]
+
+
+# ---------------------------------------------------------------------------
+# Q&A payloads
+# ---------------------------------------------------------------------------
+
+
+class QuestionData(BaseModel):
+    """A single audience question.
+
+    Attributes:
+        id: Unique sequential identifier within the room.
+        text: The question text.
+        timestamp: ISO 8601 UTC timestamp when the question was submitted.
+    """
+
+    id: int
+    text: str
+    timestamp: str
+
+
+class QuestionReceivedPayload(BaseModel):
+    """Sent to the submitting audience member to confirm receipt.
+
+    Attributes:
+        type: Always ``"question_received"``.
+        timestamp: ISO 8601 UTC timestamp.
+        question: The question that was received.
+    """
+
+    type: str = "question_received"
+    timestamp: str = Field(default_factory=_utc_now)
+    question: QuestionData
+
+
+class QuestionsListPayload(BaseModel):
+    """Sent to the presenter with the full list of questions.
+
+    Attributes:
+        type: Always ``"questions_list"``.
+        timestamp: ISO 8601 UTC timestamp.
+        questions: All questions submitted so far.
+    """
+
+    type: str = "questions_list"
+    timestamp: str = Field(default_factory=_utc_now)
+    questions: list[QuestionData]
+
+
+class QuestionNotifyPayload(BaseModel):
+    """Sent to the presenter when a new question arrives.
+
+    Attributes:
+        type: Always ``"question_notify"``.
+        timestamp: ISO 8601 UTC timestamp.
+        question: The newly submitted question.
+    """
+
+    type: str = "question_notify"
+    timestamp: str = Field(default_factory=_utc_now)
+    question: QuestionData

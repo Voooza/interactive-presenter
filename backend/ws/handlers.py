@@ -15,12 +15,18 @@ from backend.ws.connection_manager import ConnectionManager, _PollState
 from backend.ws.models import (
     ALLOWED_EMOJIS,
     ErrorPayload,
+    GetQuestionsMessage,
     NavigateMessage,
     PollClosedPayload,
     PollOpenedPayload,
     PollResultsPayload,
     PollVoteMessage,
     PongPayload,
+    QuestionData,
+    QuestionNotifyPayload,
+    QuestionReceivedPayload,
+    QuestionSubmitMessage,
+    QuestionsListPayload,
     ReactionBroadcastPayload,
     ReactionMessage,
     SlideChangedPayload,
@@ -282,6 +288,48 @@ async def _dispatch(
 
         await _handle_poll_vote(manager, websocket, presentation_id, vote)
 
+    elif msg_type == "question_submit":
+        if role != "audience":
+            error = ErrorPayload(
+                code="unauthorized",
+                detail="Only audience members can submit questions",
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        try:
+            question_msg = QuestionSubmitMessage(**data)  # type: ignore[arg-type]
+        except ValidationError as exc:
+            error = ErrorPayload(
+                code="invalid_message",
+                detail=str(exc),
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        await _handle_question_submit(manager, websocket, presentation_id, question_msg)
+
+    elif msg_type == "get_questions":
+        if role != "presenter":
+            error = ErrorPayload(
+                code="unauthorized",
+                detail="Only the presenter can request questions",
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        try:
+            GetQuestionsMessage(**data)  # type: ignore[arg-type]
+        except ValidationError as exc:
+            error = ErrorPayload(
+                code="invalid_message",
+                detail=str(exc),
+            )
+            await websocket.send_json(error.model_dump())
+            return
+
+        await _handle_get_questions(manager, websocket, presentation_id)
+
     else:
         error = ErrorPayload(
             code="unknown_type",
@@ -407,3 +455,85 @@ async def _handle_poll_vote(
         results=list(poll_state.votes),
     )
     await manager.broadcast_to_room(presentation_id, results.model_dump())
+
+
+_MAX_QUESTION_LENGTH = 280
+
+
+async def _handle_question_submit(
+    manager: ConnectionManager,
+    websocket: WebSocket,
+    presentation_id: str,
+    question_msg: QuestionSubmitMessage,
+) -> None:
+    """Process a question submission from an audience member.
+
+    Validates the text length (1–280 chars), stores the question in the room,
+    confirms receipt to the sender, and notifies the presenter.
+
+    Args:
+        manager: The connection manager.
+        websocket: The submitter's WebSocket.
+        presentation_id: The room identifier.
+        question_msg: The validated question submission message.
+    """
+    text = question_msg.text.strip()
+
+    if not text:
+        error = ErrorPayload(
+            code="invalid_message",
+            detail="Question text must not be empty",
+        )
+        await websocket.send_json(error.model_dump())
+        return
+
+    if len(text) > _MAX_QUESTION_LENGTH:
+        error = ErrorPayload(
+            code="invalid_message",
+            detail=f"Question text must be at most {_MAX_QUESTION_LENGTH} characters",
+        )
+        await websocket.send_json(error.model_dump())
+        return
+
+    room = manager.get_room(presentation_id)
+    if room is None:
+        return
+
+    # Assign an auto-incrementing ID.
+    question_id = room._next_question_id
+    room._next_question_id += 1
+
+    question = QuestionData(
+        id=question_id,
+        text=text,
+        timestamp=question_msg.timestamp,
+    )
+    room.questions.append(question)
+
+    # Confirm receipt to the sender.
+    received = QuestionReceivedPayload(question=question)
+    await websocket.send_json(received.model_dump())
+
+    # Notify the presenter.
+    notify = QuestionNotifyPayload(question=question)
+    await manager.send_to_presenter(presentation_id, notify.model_dump())
+
+
+async def _handle_get_questions(
+    manager: ConnectionManager,
+    websocket: WebSocket,
+    presentation_id: str,
+) -> None:
+    """Send the full question list to the requesting presenter.
+
+    Args:
+        manager: The connection manager.
+        websocket: The presenter's WebSocket.
+        presentation_id: The room identifier.
+    """
+    room = manager.get_room(presentation_id)
+    if room is None:
+        return
+
+    payload = QuestionsListPayload(questions=list(room.questions))
+    await websocket.send_json(payload.model_dump())

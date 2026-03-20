@@ -11,6 +11,8 @@ from fastapi import WebSocket
 from backend.ws.models import (
     ConnectedPayload,
     PeerCountPayload,
+    QuestionData,
+    QuestionsListPayload,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,6 +81,8 @@ class _Room:
         grace_task: Handle for the grace-period cleanup task.
         polls: Poll state keyed by slide index.
         active_poll: Slide index of the currently active poll, if any.
+        questions: Ordered list of audience questions.
+        _next_question_id: Auto-incrementing counter for question IDs.
     """
 
     presentation_id: str
@@ -89,6 +93,8 @@ class _Room:
     grace_task: asyncio.Task[None] | None = None
     polls: dict[int, _PollState] = field(default_factory=dict)
     active_poll: int | None = None
+    questions: list[QuestionData] = field(default_factory=list)
+    _next_question_id: int = 0
 
     @property
     def audience_count(self) -> int:
@@ -175,6 +181,11 @@ class ConnectionManager:
 
         # Broadcast updated peer count.
         await self._broadcast_peer_count(room)
+
+        # Auto-send questions list to presenter on connect.
+        if role == "presenter" and room.questions:
+            ql = QuestionsListPayload(questions=list(room.questions))
+            await websocket.send_json(ql.model_dump())
 
         return conn
 
