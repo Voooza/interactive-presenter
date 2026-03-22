@@ -205,6 +205,9 @@ export default function SlideViewer() {
               <ul className="qa-question-list">
                 {questions.map((q) => (
                   <li key={q.id} className="qa-question-item">
+                    <span className="qa-question-slide-label">
+                      Slide {q.slide_index + 1}
+                    </span>
                     <p className="qa-question-text">{q.text}</p>
                   </li>
                 ))}

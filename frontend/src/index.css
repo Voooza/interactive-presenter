@@ -673,6 +673,17 @@ body {
   word-break: break-word;
 }
 
+.qa-question-slide-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #999;
+  background-color: #222;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-bottom: 0.35rem;
+}
+
 /* ─── Q&A badge (presenter footer) ─────────────────────────────────────── */
 .qa-badge {
   display: inline-flex;

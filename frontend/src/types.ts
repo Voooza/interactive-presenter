@@ -93,6 +93,7 @@ export interface ReactionBroadcastMessage {
 export interface QuestionData {
   id: number;
   text: string;
+  slide_index: number;
   timestamp: string;
 }
 
