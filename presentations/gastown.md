@@ -20,7 +20,7 @@ You describe a task. The agent does it. You review. Repeat.
 - Works fine for a bug fix
 - Falls apart for "add four real-time features to a full-stack app"
 - Serial by nature — one director, one actor
-- The director ends up repaining every set, wiring every mic
+- The director ends up repainting every set, wiring every mic
 
 **What if you could file work and have a crew run with it?**
 
