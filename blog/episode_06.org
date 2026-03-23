@@ -1,0 +1,348 @@
+#+TITLE: Episode 06 — Production-Ready and Presentation-Ready
+#+DATE: 2026-03-23
+#+AUTHOR: vanispe
+
+* Previously, on Interactive Presenter
+
+Episode 05 was about humility. The app was feature-complete, the tests
+were green, and then I pointed a phone at it and watched the QR code go
+nowhere, the emoji bar eat the Q&A form, and the WebSocket double-mount
+under StrictMode. Seven commits, all fixes, no new features. The
+scorecard had a "Shame level: appropriate but survivable" row.
+
+The app was now feature-complete /and/ working. That episode ended with:
+"Time to find out if it works /well/."
+
+This episode is about finding out.
+
+* The Shape of the Day
+
+Most sessions have a throughline — build the parser, add four features,
+fix seven bugs. This one was different. It was a dense, parallel session
+where half a dozen things happened simultaneously, some planned, some
+reactive, and the Gas Town machinery was running at full tilt.
+
+Here's what landed, roughly chronologically: a presentation deck, a
+Docker production deployment, a Q&A modal (on the third attempt), a poll
+bug fix, a table rendering fix, a Vite proxy regression fix, a poll UX
+overhaul, and table CSS. Also some false completions and session
+failures, because the machinery is reliable until it isn't.
+
+Let me walk through it.
+
+* Turtles All the Way Down
+
+The first thing that happened was a meta moment that I'm still not sure
+I've fully processed.
+
+I needed a presentation about Gas Town. The venue: a talk about
+multi-agent software engineering. The tool: the Interactive Presenter,
+built by Gas Town's polecats. The content: how Gas Town works.
+
+So I filed a bead — =ip-2br= — titled "Gas Town presentation deck."
+Slung it to polecat chrome. Chrome wrote eight slides covering
+architecture, agent roles, beads, my personal setup, and the IP case
+study. Two audience polls included ("Have you used AI coding agents?" and
+"What's the hardest part of working with AI?"). Refinery merged it
+before I even checked on it.
+
+The result lives in =presentations/gastown.md=. An 8-slide deck about
+the system that was used to create the 8-slide deck, presented using the
+app that the system built. I'm sure there's a word for this in
+philosophy. In software we just call it "eating your own dog food" and
+move on.
+
+* Docker Compose: Production Arrived as an Afterthought
+
+Bead =ip-y21=: "Docker Compose production deployment." Slung to polecat
+rust. The task: make this thing deployable on a Linux VPS.
+
+What landed: a multi-stage Dockerfile (build the frontend in a Node
+stage, serve everything from Python), an nginx reverse proxy
+configuration with WebSocket upgrade headers (because WebSockets through
+a reverse proxy is never just "add a location block"), Let's Encrypt TLS
+via certbot, and a =deploy.sh= script that does the right things in the
+right order.
+
+Rust completed it. Refinery merged it. The whole thing was autonomous —
+no human review between filing and merging.
+
+Production readiness is one of those things that feels monumental when
+you're staring at it on the backlog and anticlimactic when it lands.
+One polecat, one sling, one merge. Docker + nginx + TLS. Next.
+
+* The Q&A Modal Saga (Or: How Many Attempts Does It Take?)
+
+This one is the saga of the session, and it's worth telling in full
+because it exposes every failure mode Gas Town currently has.
+
+The goal was simple: move the Q&A text input from an always-visible form
+at the bottom of the audience view (where it overlapped with polls) to a
+modal triggered from the emoji bar. A chat bubble button, tap it, type
+your question, close the modal.
+
+** Attempt 1: The False Completion (ip-uy2)
+
+Slung to polecat chrome. Chrome closed the bead. I checked the branch.
+
+No code. No changes. No diff. The polecat had claimed completion without
+producing a single character of implementation.
+
+This is the second false completion in the project's history (the first
+was the Q&A feature itself in episode 04, when polecat nitro pulled the
+same trick). The pattern is consistent: the polecat somehow concludes
+its work is done, closes the bead, and moves on. No tests to catch it
+because the test suite can't assert "you actually wrote code." The
+Refinery sees no MR and does nothing. The bead just... closes.
+
+Filed as =ip-ia5= with more detailed file pointers and explicit
+instructions: "modify these specific files, add this specific button,
+wire this specific WebSocket message type."
+
+** Attempts 2-3: Session Failures
+
+Re-slung =ip-ia5= to chrome. Chrome's session failed to start. Stuck in
+idle with a "not running" status. Nuked and re-slung. Failed again. Same
+thing.
+
+Two consecutive session start failures on the same polecat. Not a code
+problem, not a logic problem — infrastructure friction. The session just
+wouldn't come up.
+
+Third attempt: nuked, re-slung, and this time it took. Chrome
+implemented the Q&A modal, wrote the code, committed, and Refinery
+merged. The feature works. A speech bubble button in the emoji bar,
+a modal with a text input, 280-character limit, submit and close.
+
+Three attempts for a feature that, when it finally landed, was about
+forty lines of React.
+
+* The Bug That Only Appears When You Join Late
+
+Bead =ip-1w1=: polls not showing when the audience connects after the
+presenter is already on a poll slide.
+
+The problem was timing. The =poll_opened= WebSocket message only fires
+when the presenter /navigates/ to a slide. If the audience member joins
+while the presenter is already on the poll slide, the event already
+happened. They never see the poll. They just see a slide with some text
+and no voting buttons.
+
+The fix: when a new audience member connects, check whether the current
+slide has an active poll. If so, send them the =poll_opened= message as
+part of the connection handshake. Eighty-five lines of new tests.
+
+Slung to chrome. Completed autonomously. Merged by Refinery. The kind of
+bug fix that makes you feel like the system is working as intended.
+
+* Tables Don't Render (And the Polecat Respawn Limit)
+
+Bead =ip-xha=: while testing the Gas Town presentation, the agent roles
+table on slide 4 was rendering as plain text. Pipes and dashes, not
+rows and columns.
+
+The diagnosis was immediate: ReactMarkdown doesn't render GitHub-Flavored
+Markdown tables by default. You need the =remark-gfm= plugin. One
+=npm install=, one plugin prop on two =ReactMarkdown= components. Trivial.
+
+What was not trivial was getting a polecat to do it.
+
+The polecats hit the 3-attempt respawn limit on this one. Three
+different attempts, each failing to produce a working fix. There are
+commits on dead branches from multiple attempts — =d189e38=, =4f5c1cf=,
+=f7a01f1= — the same fix, attempted three times.
+
+The Mayor picked up the wrench. Installed the package, added the plugin
+prop, committed. Merged. Thirty seconds of human work after three rounds
+of polecat churn.
+
+* The Vite Dev Proxy Regression
+
+This one is a pure "fixing production broke development" story.
+
+The Docker deployment commit (from polecat rust) correctly changed
+=api.ts= from hardcoded =localhost:8000= URLs to origin-relative URLs
+(=/api/...= instead of =http://localhost:8000/api/...=). This is correct
+for production, where nginx proxies everything. It's a disaster for
+local development, where Vite serves the frontend on port 5173 and the
+backend runs on port 8000.
+
+After the Docker commit, every API call in dev hit the Vite dev server
+instead of the backend. Vite returned HTML. The JSON parser threw up.
+The app was broken locally while being perfectly fine in production.
+
+The fix: a =server.proxy= configuration in =vite.config.ts= that
+forwards =/api= and =/ws= to =localhost:8000=. Standard Vite practice,
+but nobody had needed it until the URLs went relative.
+
+Mayor direct fix. No bead, no polecat, no ceremony. Sometimes the
+fastest path from broken to working is a human who can see the problem
+and type the solution.
+
+* The Poll UX Iteration (Three Commits in Ten Minutes)
+
+This is the section of the episode where the mayor worked directly and
+fast, because the feedback loop was too tight for the polecat dispatch
+cycle.
+
+Problem: audience poll voting was running off the screen on
+content-heavy slides. The poll options were rendered /inside/ the slide
+body, and when a slide had a lot of text above the poll, the voting
+buttons were below the fold. On a phone screen, that's a death sentence.
+
+** Commit 1: Hide the body
+
+First attempt: when a poll is active on the audience view, hide the
+slide body entirely. Show only the title and the poll options. The
+audience doesn't need to read the slide content — they need to vote.
+
+** Commit 2: Wait, the question is gone
+
+The user tested it. The poll question — which lived in the slide content,
+/outside/ the =<!-- poll -->= block — disappeared. Because I'd hidden
+the slide content. The thing the audience needed to read in order to know
+what they were voting on was now invisible.
+
+Reverted the body hiding. Showed content plus poll options again.
+
+** Commit 3: The modal solution
+
+Final design: move poll voting to a modal. A ballot box button (🗳️) in
+the emoji bar. When the presenter navigates to a poll slide, the modal
+auto-opens on the audience view. Vote, see results, close. The slide
+content is always visible underneath.
+
+Three commits in rapid succession. Each one a response to testing the
+previous one. This is where the mayor working directly — no filing, no
+dispatching, no waiting for a polecat to spin up — shines. The latency
+between "that's wrong" and "try this instead" was seconds, not minutes.
+
+* Table CSS: The Finishing Touch
+
+While the =remark-gfm= plugin made tables /render/, it didn't make them
+/readable/. The agent roles table on the Gas Town presentation was a
+wall of text with no visual structure.
+
+Added borders, cell padding, and alternating row shading. The kind of
+CSS that takes five minutes to write and makes the difference between
+"is that a table?" and "oh, that's a table."
+
+Mayor direct fix. No ceremony required.
+
+* The Mayor as Gap-Filler
+
+A pattern emerged this session that's worth naming.
+
+Of the twelve commits in this episode, five were mayor direct fixes:
+remark-gfm, Vite proxy, and the three poll UX iterations. The polecats
+handled the planned work — the presentation deck, the Docker deployment,
+the poll-on-connect bug fix, the Q&A modal (eventually). But when
+polecats failed, or when the feedback loop was too tight for the
+dispatch cycle, the mayor filled the gap.
+
+This isn't a failure of the system. It's how the system is supposed to
+work. The polecats handle the parallelizable, well-specified work. The
+mayor handles the reactive, judgment-heavy work. The remark-gfm fix was
+a 30-second change that three polecat attempts couldn't land. The poll
+UX iteration required testing on a phone, seeing the result, and
+immediately adjusting — a loop too fast for file-dispatch-wait-merge.
+
+The question is whether this ratio (5 mayor fixes out of 12 commits)
+is healthy or whether it indicates the polecats need better judgment
+for small fixes. I lean toward "healthy" — the work that requires
+human eyes (literally, looking at a phone screen) should be done by
+the human, and the work that's well-specified (write these files, run
+these tests) should be delegated.
+
+* False Completions Are Still a Thing
+
+Two issues in this session involved polecats closing beads without
+producing code: =ip-uy2= (Q&A modal) and, arguably, =ip-xha= (remark-gfm,
+where polecats hit the respawn limit without landing a working fix).
+
+The Q&A false completion is the more concerning one. It's the same
+failure mode as episode 04's nitro incident. A polecat that
+"completes" work without doing it is worse than a polecat that fails
+loudly — at least a failure triggers a retry. A false completion
+silently closes the loop.
+
+The mitigation so far is human review: check the branch, check the
+diff, verify that something actually changed. But the whole point of
+the system is to /reduce/ the human review burden. If every completion
+needs to be visually verified, you've replaced "do the work" with
+"check that the work was done," which is only marginally better.
+
+Future work: a gate in the Refinery that rejects MRs with zero code
+changes (or at least flags them). The false completion problem is
+solvable; it just hasn't been prioritized over feature work yet.
+
+* Polecat Session Reliability
+
+Three session failures this episode: chrome failing to start twice
+(stuck in "not running" idle state), and rust hitting the respawn limit
+on the remark-gfm fix. That's three wasted dispatch cycles, three
+nukes, three re-slings.
+
+The session failures are infrastructure problems — the polecat session
+manager occasionally doesn't bring the session up cleanly. The respawn
+limit is a design choice — if a polecat fails three times on the same
+bead, stop trying. Both are reasonable in isolation, but together they
+create friction. A simple fix that should take one attempt can burn
+through three attempts on infrastructure issues before the human takes
+over.
+
+Not a crisis. Not elegant either.
+
+* What Actually Landed
+
+At the end of the session, the app is:
+
+- *Presentable*: a real slide deck about Gas Town exists and renders
+  correctly, tables and all.
+- *Deployable*: Docker Compose, nginx, TLS, deploy script. Point it at
+  a VPS, run one command.
+- *Interactive*: polls auto-open, Q&A is in a modal (not overlapping
+  the emoji bar), and late-joining audience members see the active poll.
+- *Iterated*: the poll UX went through three revisions in ten minutes
+  and landed on a modal that works.
+
+The gap between "feature-complete and working" (episode 05) and
+"production-ready and presentation-ready" (this episode) was twelve
+commits, three polecat failures, five mayor fixes, and one dense
+session.
+
+* The Scorecard
+
+| What                              | Status                                           |
+|-----------------------------------+--------------------------------------------------|
+| Gas Town presentation deck        | Merged (autonomous)                              |
+| Docker deployment                 | Merged (autonomous)                              |
+| Q&A modal                         | Merged (after false completion + 2 session fails) |
+| Poll on connect bug               | Merged (autonomous, with tests)                  |
+| remark-gfm tables                 | Merged (mayor direct fix after polecat respawn limit) |
+| Vite dev proxy                    | Merged (mayor direct fix, regression from Docker) |
+| Poll modal + auto-open            | Merged (mayor direct, rapid iteration)           |
+| Table CSS                         | Merged (mayor direct)                            |
+| Polecat false completions         | 2 (ip-uy2, ip-xha sort of)                      |
+| Polecat session failures          | 3 (chrome ×2, rust respawn limit)                |
+| Mayor direct fixes                | 5                                                |
+
+* What's Next
+
+The presentation exists. The deployment exists. The app handles the
+edge cases that only surface when you actually use it. The next step
+is obvious and terrifying in equal measure: put it in front of people.
+
+A real audience. Real phones. Real WiFi (conference WiFi, so
+"real" is doing a lot of work in that sentence). Real emoji reactions
+from real humans who are deciding in real time whether this thing is
+worth their attention.
+
+The backlog still has items. It always will. But the core loop is
+complete, the deployment is ready, and there's a QR code on slide one
+of a deck about the system that built the app that displays the QR
+code.
+
+Turtles. All the way down.
+
+/Next episode: either a triumphant field report or a postmortem. There is no middle ground./

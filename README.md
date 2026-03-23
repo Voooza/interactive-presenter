@@ -134,6 +134,7 @@ Development chronicles:
 - [Episode 03](blog/episode_03.org) -- The parser bug
 - [Episode 04](blog/episode_04.org) -- Four features, multi-agent workflow
 - [Episode 05](blog/episode_05.org) -- Hardening and polish
+- [Episode 06](blog/episode_06.org) -- Production-ready and presentation-ready
 
 ## Running Tests
 
