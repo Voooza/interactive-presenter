@@ -2,8 +2,6 @@
 
 **How I stopped prompting one AI and started running a crew**
 
-*vanispe / Voooza*
-
 <!-- poll
 - Yes, daily
 - Tried it once or twice
@@ -158,6 +156,6 @@ The demo works before you demo it, and then it doesn't.
 
 # Thank You
 
-**Gas Town** — github.com/vanispe
+**Gas Town** — https://github.com/steveyegge/gastown
 
 Questions? Use the Q&A below. Or just send emoji reactions. I'll see them float up.
