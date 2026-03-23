@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { fetchSlides } from '../api';
 import { usePolls } from '../hooks/usePolls';
@@ -175,7 +176,7 @@ export default function SlideViewer() {
         <h1 className="slide-title">{slide.title}</h1>
         {slide.content && (
           <div className="slide-body">
-            <ReactMarkdown>{slide.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
           </div>
         )}
       </div>
