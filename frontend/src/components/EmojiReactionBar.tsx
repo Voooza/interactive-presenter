@@ -24,9 +24,10 @@ const EMOJI_NAMES: Record<string, string> = {
 
 interface EmojiReactionBarProps {
   onReact: (emoji: string) => void;
+  onQuestionClick?: () => void;
 }
 
-export default function EmojiReactionBar({ onReact }: EmojiReactionBarProps) {
+export default function EmojiReactionBar({ onReact, onQuestionClick }: EmojiReactionBarProps) {
   return (
     <div className="reaction-bar">
       {ALLOWED_EMOJIS.map((emoji) => (
@@ -40,6 +41,19 @@ export default function EmojiReactionBar({ onReact }: EmojiReactionBarProps) {
           {emoji}
         </button>
       ))}
+      {onQuestionClick && (
+        <>
+          <div className="reaction-bar-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="reaction-btn reaction-btn-question"
+            aria-label="Ask a question"
+            onClick={onQuestionClick}
+          >
+            ❓
+          </button>
+        </>
+      )}
     </div>
   );
 }

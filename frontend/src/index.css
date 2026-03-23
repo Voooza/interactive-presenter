@@ -451,6 +451,17 @@ body {
   transform: scale(1.3);
 }
 
+.reaction-bar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.25rem 0.25rem;
+  background-color: #555;
+}
+
+.reaction-btn-question {
+  font-size: 1.25rem;
+}
+
 /* ─── Reaction overlay (presenter view) ────────────────────────────────── */
 .reaction-overlay {
   position: fixed;
@@ -510,19 +521,25 @@ body {
   max-width: 220px;
 }
 
-/* ─── Q&A form (audience view) ─────────────────────────────────────────── */
-.qa-form {
+/* ─── Q&A modal (audience view) ────────────────────────────────────────── */
+.qa-modal-backdrop {
   position: fixed;
-  bottom: 8rem;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+}
+
+.qa-modal {
   width: min(90vw, 500px);
   padding: 1rem;
   background-color: rgba(30, 30, 30, 0.95);
   border: 1px solid #444;
   border-radius: 12px;
   backdrop-filter: blur(8px);
-  z-index: 100;
 }
 
 .qa-textarea {
@@ -589,6 +606,27 @@ body {
 .qa-submit-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.qa-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.qa-cancel-btn {
+  padding: 0.5rem 1.25rem;
+  background: none;
+  border: 1px solid #555;
+  border-radius: 8px;
+  color: #d0d0d0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.qa-cancel-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .qa-confirmation {

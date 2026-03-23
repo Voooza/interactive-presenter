@@ -28,6 +28,7 @@ export default function AudienceView() {
 
   const [questionText, setQuestionText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [qaModalOpen, setQaModalOpen] = useState(false);
 
   const { activePoll, markVoted, handleMessage: handlePollMessage } = usePolls();
   const { lastConfirmed, handleMessage: handleQuestionMessage } = useQuestions();
@@ -74,6 +75,7 @@ export default function AudienceView() {
     });
     setSubmitting(true);
     setQuestionText('');
+    setQaModalOpen(false);
   };
 
   const handleQuestionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -174,38 +176,69 @@ export default function AudienceView() {
         )}
       </div>
 
-      <div className="qa-form">
-        <textarea
-          className="qa-textarea"
-          placeholder="Ask a question…"
-          value={questionText}
-          onChange={(e) => setQuestionText(e.target.value)}
-          onKeyDown={handleQuestionKeyDown}
-          maxLength={MAX_QUESTION_LENGTH}
-          rows={2}
-          disabled={!isConnected || submitting}
-        />
-        <div className="qa-form-footer">
-          <span
-            className={`qa-char-counter${charsRemaining < 0 ? ' qa-char-over' : charsRemaining <= 30 ? ' qa-char-warn' : ''}`}
-          >
-            {charsRemaining}
-          </span>
-          <button
-            type="button"
-            className="qa-submit-btn"
-            disabled={!canSubmit || !isConnected}
-            onClick={handleQuestionSubmit}
-          >
-            {submitting ? 'Sending…' : 'Send'}
-          </button>
-        </div>
-        {lastConfirmed && (
-          <p className="qa-confirmation">Question submitted!</p>
-        )}
-      </div>
+      <EmojiReactionBar onReact={handleReact} onQuestionClick={() => setQaModalOpen(true)} />
 
-      <EmojiReactionBar onReact={handleReact} />
+      {qaModalOpen && (
+        <div
+          className="qa-modal-backdrop"
+          onClick={() => setQaModalOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setQaModalOpen(false);
+          }}
+        >
+          <div
+            className="qa-modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setQaModalOpen(false);
+              } else {
+                e.stopPropagation();
+              }
+            }}
+          >
+            <textarea
+              className="qa-textarea"
+              placeholder="Ask a question…"
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              onKeyDown={handleQuestionKeyDown}
+              maxLength={MAX_QUESTION_LENGTH}
+              rows={3}
+              disabled={!isConnected || submitting}
+              autoFocus
+            />
+            <div className="qa-form-footer">
+              <span
+                className={`qa-char-counter${charsRemaining < 0 ? ' qa-char-over' : charsRemaining <= 30 ? ' qa-char-warn' : ''}`}
+              >
+                {charsRemaining}
+              </span>
+              <div className="qa-modal-actions">
+                <button
+                  type="button"
+                  className="qa-cancel-btn"
+                  onClick={() => setQaModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="qa-submit-btn"
+                  disabled={!canSubmit || !isConnected}
+                  onClick={handleQuestionSubmit}
+                >
+                  {submitting ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            </div>
+            {lastConfirmed && (
+              <p className="qa-confirmation">Question submitted!</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="slide-footer">
         <div
           className="slide-counter"
