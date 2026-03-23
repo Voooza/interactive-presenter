@@ -9,7 +9,7 @@ import { useQuestions } from '../hooks/useQuestions';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { ServerMessage, Slide } from '../types';
 import EmojiReactionBar from './EmojiReactionBar';
-import PollCard from './PollCard';
+import PollModal from './PollModal';
 import QuestionModal from './QuestionModal';
 
 /**
@@ -28,6 +28,7 @@ export default function AudienceView() {
   const [error, setError] = useState<string | null>(null);
 
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [pollModalOpen, setPollModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
@@ -149,31 +150,30 @@ export default function AudienceView() {
 
       <div className="slide-content">
         <h1 className="slide-title">{slide.title}</h1>
-        {activePoll && activePoll.slideIndex === slideIndex ? (
-          <>
-            {slide.content && (
-              <div className="slide-body">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
-              </div>
-            )}
-            <PollCard poll={activePoll} onVote={handleVote} />
-          </>
-        ) : (
-          slide.content && (
-            <div className="slide-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
-            </div>
-          )
+        {slide.content && (
+          <div className="slide-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
+          </div>
         )}
       </div>
 
       <EmojiReactionBar
         onReact={handleReact}
+        onPollClick={() => setPollModalOpen(true)}
+        hasPoll={!!(activePoll && activePoll.slideIndex === slideIndex)}
         onQuestionClick={() => {
           setModalKey((k) => k + 1);
           setQuestionModalOpen(true);
         }}
       />
+
+      {pollModalOpen && activePoll && activePoll.slideIndex === slideIndex && (
+        <PollModal
+          poll={activePoll}
+          onVote={handleVote}
+          onClose={() => setPollModalOpen(false)}
+        />
+      )}
 
       {questionModalOpen && (
         <QuestionModal

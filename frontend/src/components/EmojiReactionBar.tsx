@@ -27,9 +27,11 @@ const EMOJI_NAMES: Record<string, string> = {
 interface EmojiReactionBarProps {
   onReact: (emoji: string) => void;
   onQuestionClick?: () => void;
+  onPollClick?: () => void;
+  hasPoll?: boolean;
 }
 
-export default function EmojiReactionBar({ onReact, onQuestionClick }: EmojiReactionBarProps) {
+export default function EmojiReactionBar({ onReact, onQuestionClick, onPollClick, hasPoll }: EmojiReactionBarProps) {
   return (
     <div className="reaction-bar">
       {ALLOWED_EMOJIS.map((emoji) => (
@@ -43,18 +45,28 @@ export default function EmojiReactionBar({ onReact, onQuestionClick }: EmojiReac
           {emoji}
         </button>
       ))}
+      {(onQuestionClick || (onPollClick && hasPoll)) && (
+        <div className="reaction-bar-divider" aria-hidden="true" />
+      )}
+      {onPollClick && hasPoll && (
+        <button
+          type="button"
+          className="reaction-btn reaction-btn-poll"
+          aria-label="Vote in poll"
+          onClick={onPollClick}
+        >
+          🗳️
+        </button>
+      )}
       {onQuestionClick && (
-        <>
-          <div className="reaction-bar-divider" aria-hidden="true" />
-          <button
-            type="button"
-            className="reaction-btn reaction-btn-question"
-            aria-label="Ask a question"
-            onClick={onQuestionClick}
-          >
-            ❓
-          </button>
-        </>
+        <button
+          type="button"
+          className="reaction-btn reaction-btn-question"
+          aria-label="Ask a question"
+          onClick={onQuestionClick}
+        >
+          ❓
+        </button>
       )}
     </div>
   );

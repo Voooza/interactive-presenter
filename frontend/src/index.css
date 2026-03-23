@@ -589,6 +589,16 @@ body {
   border-color: #888;
 }
 
+.poll-modal .poll-options {
+  padding: 0.5rem 0;
+}
+
+.poll-modal-close {
+  margin-top: 1rem;
+  width: 100%;
+  text-align: center;
+}
+
 .qa-textarea {
   width: 100%;
   padding: 0.75rem 1rem;
