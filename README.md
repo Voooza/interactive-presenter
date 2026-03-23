@@ -135,6 +135,41 @@ Development chronicles:
 - [Episode 04](blog/episode_04.org) -- Four features, multi-agent workflow
 - [Episode 05](blog/episode_05.org) -- Hardening and polish
 
+## Production Deployment
+
+The app runs as a single Docker container on `127.0.0.1:8000`. Your existing
+nginx (with your own TLS/certbot setup) reverse-proxies to it.
+
+```bash
+# Build and start
+./deploy.sh
+
+# Stop
+./deploy.sh down
+
+# Follow logs
+./deploy.sh logs
+```
+
+### nginx Setup
+
+Add the WebSocket-aware location blocks to your existing `server { }` block:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name slides.example.com;
+    # ... your TLS config ...
+
+    include /path/to/interactive-presenter/deploy/nginx/snippet.conf;
+}
+```
+
+The snippet handles WebSocket upgrade headers for `/ws/` (required for
+real-time features) and proxies everything else to the app.
+
+See [`deploy/nginx/snippet.conf`](deploy/nginx/snippet.conf) for details.
+
 ## Running Tests
 
 ```bash
