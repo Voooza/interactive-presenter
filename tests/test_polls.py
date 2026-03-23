@@ -410,6 +410,91 @@ class TestPollVote:
                     assert results["results"] == [1, 0, 1]
 
 
+class TestPollStateOnConnect:
+    """Tests that audience members receive active poll state on connect."""
+
+    def test_audience_receives_poll_opened_on_connect(
+        self, client: TestClient, presentations_dir: Path
+    ) -> None:
+        """An audience member joining while a poll is active gets poll_opened."""
+        with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
+            presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
+            presenter_ws.receive_json()  # peer_count
+
+            # Navigate to poll slide before any audience joins.
+            presenter_ws.send_json({"type": "navigate", "slide_index": 1})
+            presenter_ws.receive_json()  # poll_opened
+
+            # Now an audience member connects.
+            with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
+                connected = audience_ws.receive_json()
+                assert connected["type"] == "connected"
+                assert connected["current_slide"] == 1
+
+                # Should receive poll_opened with initial results.
+                poll_msg = audience_ws.receive_json()
+                assert poll_msg["type"] == "poll_opened"
+                assert poll_msg["slide_index"] == 1
+                assert poll_msg["options"] == ["Red", "Green", "Blue"]
+                assert poll_msg["results"] == [0, 0, 0]
+
+    def test_audience_receives_poll_with_existing_votes_on_connect(
+        self, client: TestClient, presentations_dir: Path
+    ) -> None:
+        """An audience member joining sees accumulated votes in poll_opened."""
+        with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
+            presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
+            presenter_ws.receive_json()  # peer_count
+
+            # First audience member joins, navigates to poll, votes.
+            with client.websocket_connect("/ws/demo?role=audience") as aud1:
+                aud1.receive_json()  # connected
+                aud1.receive_json()  # peer_count
+                presenter_ws.receive_json()  # peer_count
+
+                presenter_ws.send_json({"type": "navigate", "slide_index": 1})
+                presenter_ws.receive_json()  # poll_opened
+                aud1.receive_json()  # slide_changed
+                aud1.receive_json()  # poll_opened
+
+                aud1.send_json(
+                    {"type": "poll_vote", "slide_index": 1, "option_index": 0}
+                )
+                presenter_ws.receive_json()  # poll_results
+                aud1.receive_json()  # poll_results
+
+                # Second audience member joins while poll is active with votes.
+                with client.websocket_connect("/ws/demo?role=audience") as aud2:
+                    connected = aud2.receive_json()
+                    assert connected["type"] == "connected"
+
+                    poll_msg = aud2.receive_json()
+                    assert poll_msg["type"] == "poll_opened"
+                    assert poll_msg["slide_index"] == 1
+                    assert poll_msg["options"] == ["Red", "Green", "Blue"]
+                    assert poll_msg["results"] == [1, 0, 0]
+
+    def test_no_poll_opened_on_non_poll_slide(
+        self, client: TestClient, presentations_dir: Path
+    ) -> None:
+        """An audience member joining on a non-poll slide gets no poll_opened."""
+        with client.websocket_connect("/ws/demo?role=presenter") as presenter_ws:
+            presenter_ws.receive_json()  # connected
+            presenter_ws.receive_json()  # questions_list
+            presenter_ws.receive_json()  # peer_count
+
+            # Stay on slide 0 (not a poll slide).
+            with client.websocket_connect("/ws/demo?role=audience") as audience_ws:
+                connected = audience_ws.receive_json()
+                assert connected["type"] == "connected"
+
+                # Next message should be peer_count, not poll_opened.
+                peer_msg = audience_ws.receive_json()
+                assert peer_msg["type"] == "peer_count"
+
+
 class TestPollVotesPreservedAfterClose:
     """Tests that poll votes persist after navigating away and back."""
 

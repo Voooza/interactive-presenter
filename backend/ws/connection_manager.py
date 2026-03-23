@@ -11,6 +11,7 @@ from fastapi import WebSocket
 from backend.ws.models import (
     ConnectedPayload,
     PeerCountPayload,
+    PollOpenedPayload,
     QuestionData,
     QuestionsListPayload,
 )
@@ -178,6 +179,17 @@ class ConnectionManager:
             audience_count=room.audience_count,
         )
         await websocket.send_json(connected.model_dump())
+
+        # Send active poll state to newly connected audience members.
+        if role == "audience" and room.active_poll is not None:
+            poll_state = room.polls.get(room.active_poll)
+            if poll_state is not None:
+                opened = PollOpenedPayload(
+                    slide_index=poll_state.slide_index,
+                    options=poll_state.options,
+                    results=list(poll_state.votes),
+                )
+                await websocket.send_json(opened.model_dump())
 
         # Auto-send questions list to presenter on connect (always, even when empty).
         if role == "presenter":
