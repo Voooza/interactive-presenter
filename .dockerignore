@@ -1,0 +1,27 @@
+# Ignore everything, then whitelist what we need
+**
+
+# Backend source
+!backend/
+!pyproject.toml
+
+# Frontend source (for the build stage)
+!frontend/
+frontend/node_modules/
+frontend/dist/
+
+# Presentation data
+!presentations/
+
+# Ignore dev/agent tooling that might sneak in
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.pyc
+**/.env
+**/.git
+**/.beads/
+**/.claude/
+**/.opencode/
+**/.runtime/

@@ -1,0 +1,80 @@
+# ===========================================================================
+# Docker Compose — Interactive Presenter (production)
+#
+# Services:
+#   backend  — FastAPI/uvicorn app serving API + WebSocket + static frontend
+#   nginx    — Reverse proxy with TLS termination (Let's Encrypt)
+#   certbot  — Automatic certificate provisioning and renewal
+#
+# Quick start:
+#   1. Copy .env.example to .env and set DOMAIN / CERTBOT_EMAIL
+#   2. Run ./deploy.sh   (handles initial cert + docker compose up)
+#
+# ===========================================================================
+
+services:
+  # ---- Backend: FastAPI + uvicorn -----------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ip-backend
+    restart: unless-stopped
+    environment:
+      - PRESENTATIONS_DIR=/app/presentations
+      - STATIC_DIR=/app/frontend/dist
+    volumes:
+      # Mount presentations from the host so they can be updated without
+      # rebuilding the image.
+      - ./presentations:/app/presentations:ro
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - internal
+
+  # ---- nginx: TLS termination + reverse proxy ----------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ip-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ---- Certbot: Let's Encrypt certificate management ---------------------
+  certbot:
+    image: certbot/certbot:latest
+    container_name: ip-certbot
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    # Renew certificates every 12 hours (certbot is a no-op if not due).
+    # The initial certificate is obtained by deploy.sh before compose up.
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 43200 & wait $${!}; done'
+    networks:
+      - internal
+
+volumes:
+  certbot-webroot:
+  certbot-certs:
+
+networks:
+  internal:
+    driver: bridge

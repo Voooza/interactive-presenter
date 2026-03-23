@@ -1,6 +1,7 @@
 import type { Presentation, Slide } from './types';
 
-const API_BASE_URL = 'http://localhost:8000';
+/** API base URL — empty string uses the current origin (production behind nginx). */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export async function fetchPresentations(): Promise<Presentation[]> {
   const response = await fetch(`${API_BASE_URL}/api/presentations`);

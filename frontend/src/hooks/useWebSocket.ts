@@ -9,7 +9,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ClientMessage, ServerMessage } from '../types';
 
-const WS_BASE_URL = 'ws://localhost:8000';
+/**
+ * Derive the WebSocket base URL from the current page origin.
+ * Uses wss:// when served over HTTPS, ws:// otherwise.
+ * Can be overridden via VITE_WS_BASE_URL for local development.
+ */
+const WS_BASE_URL =
+  import.meta.env.VITE_WS_BASE_URL ??
+  `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TIMEOUT_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 10;

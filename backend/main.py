@@ -1,8 +1,13 @@
 """FastAPI application entry point for the Interactive Presenter backend."""
 
+import os
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.routes import router
 from backend.ws.connection_manager import ConnectionManager
@@ -29,6 +34,26 @@ app.include_router(ws_router)
 
 # Create a single ConnectionManager instance shared across the application.
 app.state.connection_manager = ConnectionManager()
+
+
+@app.get("/healthz")
+def healthz() -> JSONResponse:
+    """Health check endpoint for Docker and load balancer probes."""
+    return JSONResponse({"status": "ok"})
+
+
+# ---------------------------------------------------------------------------
+# Serve pre-built frontend static files when available.
+# In production the Docker image copies the Vite build output into
+# ``/app/frontend/dist``.  When running locally with ``dev.sh`` the Vite dev
+# server handles the frontend instead.
+# ---------------------------------------------------------------------------
+_STATIC_DIR = Path(os.environ.get("STATIC_DIR", "frontend/dist"))
+
+if _STATIC_DIR.is_dir():
+    # ``html=True`` enables SPA fallback — any path that doesn't match a
+    # real file returns ``index.html`` so React Router can handle it.
+    app.mount("/", StaticFiles(directory=str(_STATIC_DIR), html=True), name="static")
 
 
 if __name__ == "__main__":
