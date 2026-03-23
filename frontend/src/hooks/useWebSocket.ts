@@ -22,6 +22,16 @@ const HEARTBEAT_TIMEOUT_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_CAP_MS = 15_000;
 
+/**
+ * WebSocket close codes that indicate a permanent failure where reconnection
+ * would be futile.  The server sends these for non-recoverable conditions.
+ */
+const PERMANENT_CLOSE_CODES = new Set([
+  4001, // Presentation not found
+  4002, // Presenter slot replaced (old tab kicked)
+  4003, // Invalid role
+]);
+
 export interface UseWebSocketOptions {
   presentationId: string;
   role: 'presenter' | 'audience';
@@ -143,10 +153,17 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       onMessageRef.current?.(msg);
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event: CloseEvent) => {
       if (!mountedRef.current) return;
       setIsConnected(false);
       clearHeartbeat();
+
+      // Don't reconnect on permanent failure codes — retrying won't help.
+      if (PERMANENT_CLOSE_CODES.has(event.code)) {
+        setIsReconnecting(false);
+        gaveUpRef.current = true;
+        return;
+      }
 
       if (!manualDisconnectRef.current && !gaveUpRef.current) {
         const attempt = reconnectAttemptRef.current + 1;

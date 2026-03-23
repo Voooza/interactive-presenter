@@ -1,6 +1,7 @@
 """Room and WebSocket connection tracking."""
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -144,9 +145,10 @@ class ConnectionManager:
         Returns:
             The ``_Connection`` wrapper for the new connection.
 
-        Raises:
-            ValueError: If the room already has a presenter and ``role``
-                is ``"presenter"``.
+        Note:
+            If a presenter is already connected and ``role`` is
+            ``"presenter"``, the existing presenter is disconnected
+            (replaced) so the new connection can take over.
         """
         room = self.rooms.get(presentation_id)
         if room is None:
@@ -164,7 +166,16 @@ class ConnectionManager:
 
         if role == "presenter":
             if room.presenter is not None:
-                raise ValueError("Presenter slot already taken")
+                # A presenter is already connected (likely a stale tab or
+                # browser refresh). Kick the old connection so the new one
+                # can take over.  This avoids a race where the browser
+                # opens a new WebSocket before the server processes the
+                # old one's disconnect.
+                old_ws = room.presenter.websocket
+                self._connections.pop(old_ws, None)
+                room.presenter = None
+                with contextlib.suppress(Exception):
+                    await old_ws.close(code=4002, reason="Replaced by new presenter")
             room.presenter = conn
         else:
             room.audience.add(conn)

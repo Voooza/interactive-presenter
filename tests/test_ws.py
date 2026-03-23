@@ -111,21 +111,22 @@ class TestInvalidPresentation:
             ws.receive_json()
 
 
-class TestPresenterSlotTaken:
-    """Tests for the presenter slot enforcement."""
+class TestPresenterReplacement:
+    """Tests for presenter replacement (new presenter kicks the old one)."""
 
-    def test_close_code_4002(self, client: TestClient, presentations_dir: Path) -> None:
-        """A second presenter is rejected with close code 4002."""
+    def test_second_presenter_replaces_first(
+        self, client: TestClient, presentations_dir: Path
+    ) -> None:
+        """A second presenter connects successfully and kicks the first."""
         with client.websocket_connect("/ws/demo?role=presenter") as ws1:
             ws1.receive_json()  # connected
             ws1.receive_json()  # questions_list
             ws1.receive_json()  # peer_count
 
-            with (
-                pytest.raises(Exception),  # noqa: B017
-                client.websocket_connect("/ws/demo?role=presenter") as ws2,
-            ):
-                ws2.receive_json()
+            with client.websocket_connect("/ws/demo?role=presenter") as ws2:
+                data = ws2.receive_json()
+                assert data["type"] == "connected"
+                assert data["role"] == "presenter"
 
 
 class TestInvalidRole:
