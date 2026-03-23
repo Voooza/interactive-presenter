@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,9 +31,22 @@ export default function AudienceView() {
   const [pollModalOpen, setPollModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const lastPollSlideRef = useRef<number | null>(null);
 
   const { activePoll, markVoted, handleMessage: handlePollMessage } = usePolls();
   const { lastConfirmed, handleMessage: handleQuestionMessage } = useQuestions();
+
+  // Auto-open poll modal when a new poll becomes active.
+  useEffect(() => {
+    if (activePoll && activePoll.isOpen && !activePoll.hasVoted) {
+      if (lastPollSlideRef.current !== activePoll.slideIndex) {
+        lastPollSlideRef.current = activePoll.slideIndex;
+        setPollModalOpen(true);
+      }
+    } else if (!activePoll) {
+      lastPollSlideRef.current = null;
+    }
+  }, [activePoll]);
 
   const handleMessage = useCallback(
     (message: ServerMessage) => {
