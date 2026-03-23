@@ -149,13 +149,14 @@ export default function AudienceView() {
 
       <div className="slide-content">
         <h1 className="slide-title">{slide.title}</h1>
-        {slide.content && (
-          <div className="slide-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
-          </div>
-        )}
-        {activePoll && activePoll.slideIndex === slideIndex && (
+        {activePoll && activePoll.slideIndex === slideIndex ? (
           <PollCard poll={activePoll} onVote={handleVote} />
+        ) : (
+          slide.content && (
+            <div className="slide-body">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
+            </div>
+          )
         )}
       </div>
 
