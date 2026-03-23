@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.main import app
+from backend.main import create_app
 
 _DEMO_MD = """\
 # Welcome
@@ -47,7 +47,7 @@ def presentations_dir(tmp_path: Path) -> Generator[Path, None, None]:
 @pytest.fixture()
 def client() -> TestClient:
     """Return a synchronous TestClient for the FastAPI app."""
-    return TestClient(app)
+    return TestClient(create_app())
 
 
 class TestListPresentations:
@@ -179,3 +179,77 @@ class TestGetSlides:
         third_slide = response.json()[2]
         assert "```python" in third_slide["content"]
         assert 'print("hello")' in third_slide["content"]
+
+
+class TestFrontendSpaFallback:
+    """Tests for serving the built frontend in production mode."""
+
+    def test_nested_audience_route_falls_back_to_index(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """Client-side audience routes return the SPA entrypoint instead of 404."""
+        frontend_dist = tmp_path / "frontend-dist"
+        frontend_dist.mkdir()
+        index_file = frontend_dist / "index.html"
+        index_body = "<html><body><div id='root'></div></body></html>"
+        index_file.write_text(index_body, encoding="utf-8")
+
+        old_static_dir = os.environ.get("STATIC_DIR")
+        os.environ["STATIC_DIR"] = str(frontend_dist)
+
+        try:
+            production_client = TestClient(create_app())
+            response = production_client.get("/presentations/test_deck/audience")
+        finally:
+            if old_static_dir is None:
+                del os.environ["STATIC_DIR"]
+            else:
+                os.environ["STATIC_DIR"] = old_static_dir
+
+        assert response.status_code == 200
+        assert response.text == index_body
+
+    def test_missing_asset_still_returns_404(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """Missing asset files should not fall back to the SPA entrypoint."""
+        frontend_dist = tmp_path / "frontend-dist"
+        frontend_dist.mkdir()
+        (frontend_dist / "index.html").write_text("<html></html>", encoding="utf-8")
+
+        old_static_dir = os.environ.get("STATIC_DIR")
+        os.environ["STATIC_DIR"] = str(frontend_dist)
+
+        try:
+            production_client = TestClient(create_app())
+            response = production_client.get("/assets/missing.js")
+        finally:
+            if old_static_dir is None:
+                del os.environ["STATIC_DIR"]
+            else:
+                os.environ["STATIC_DIR"] = old_static_dir
+
+        assert response.status_code == 404
+
+    def test_healthz_still_bypasses_spa_fallback(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """The health check route should continue to return JSON."""
+        frontend_dist = tmp_path / "frontend-dist"
+        frontend_dist.mkdir()
+        (frontend_dist / "index.html").write_text("<html></html>", encoding="utf-8")
+
+        old_static_dir = os.environ.get("STATIC_DIR")
+        os.environ["STATIC_DIR"] = str(frontend_dist)
+
+        try:
+            production_client = TestClient(create_app())
+            response = production_client.get("/healthz")
+        finally:
+            if old_static_dir is None:
+                del os.environ["STATIC_DIR"]
+            else:
+                os.environ["STATIC_DIR"] = old_static_dir
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
