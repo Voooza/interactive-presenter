@@ -114,13 +114,7 @@ async def websocket_endpoint(
 
     # Accept and connect.
     await websocket.accept()
-
-    try:
-        conn = await manager.connect(websocket, presentation_id, role)
-    except ValueError:
-        # Presenter slot already taken.
-        await websocket.close(code=4002, reason="Presenter slot taken")
-        return
+    conn = await manager.connect(websocket, presentation_id, role)
 
     rate_limiter = RateLimiter()
 
