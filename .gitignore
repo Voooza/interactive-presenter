@@ -41,6 +41,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Dev script PID files
+.dev-*.pid
+
 # Agent tooling
 .beads/
 .claude/

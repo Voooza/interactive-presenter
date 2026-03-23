@@ -1,0 +1,234 @@
+#+TITLE: Episode 05 — The Bugs That Only Exist When You Use It
+#+DATE: 2026-03-22
+#+AUTHOR: vanispe
+
+* Previously, on Interactive Presenter
+
+Episode 04 closed on a triumphant note. Ninety-six tests green. Clean
+build. Four features merged. Gas Town had done its thing — polecats
+slung, Refinery merged, even the Witness caught a lazy false-completion
+and escalated it. The QR code was on slide one, waiting to be scanned.
+The architecture was sound. The scorecard looked great.
+
+Then I actually tried to use it.
+
+* Feature-Complete Is Not the Same as Working
+
+There's a specific flavor of humiliation that comes from building a
+thing, running all the tests, declaring victory, and then watching it
+fail the moment you point a real phone at it. The tests were testing the
+right /units/ — the logic was correct in isolation. But the units hadn't
+been tested /together/, in a browser, on hardware, over a network, by a
+human doing the things humans actually do.
+
+That gap — between "tests pass" and "this works" — is where episode 05
+lives. Seven commits, all fixes, no new features. The most important
+session of the project so far, and also the least glamorous.
+
+* Fix 1: The QR Code Pointed Nowhere
+
+The QR code appeared. The phone scanned it. The browser opened. A blank
+page.
+
+The route mismatch was embarrassing in its simplicity: the QR code was
+generating a URL to =/audience/:id=, but React Router had the audience
+route registered at =/presentations/:id/audience=. Every single audience
+member who ever scanned that code would have silently landed on a 404
+(and then, adding insult to injury, there wasn't even a 404 page yet —
+that comes later). The QR code component had been written without
+ever checking what the router actually expected.
+
+One-line fix. Correct URL in, correct URL out. The most important bug in
+the whole project, fixed in the most anticlimactic way possible.
+
+* Fix 2: The Q&A Form Was Buried Under the Emoji Bar
+
+The emoji reaction bar sits at the bottom of the audience view. The Q&A
+text input also wanted to sit at the bottom of the audience view.
+Neither of them had been introduced to the other.
+
+The result: the form was physically obscured by the emoji bar. You could
+type a question, but you couldn't see the submit button. And while we
+were in there, there was no keyboard shortcut to submit — every mobile
+user had to tap a button because Enter just inserted a newline like some
+kind of Neolithic text editor.
+
+Two things fixed in one commit: the Q&A form's =bottom= offset moved
+from =4rem= to =8rem= (above the emoji bar instead of underneath it),
+and an =onKeyDown= handler added so Enter submits and Shift+Enter inserts
+a newline for the people who want paragraph breaks in their conference
+questions. A reasonable set of behaviors for any era of computing.
+
+* Fix 3: The Missing 404 Page
+
+As discovered in Fix 1, the app had no catch-all route. Navigate to
+anything unexpected — a mistyped URL, a stale link, that QR code before
+it was corrected — and React Router would just render nothing. Not even
+a helpful message. Just the empty void of an unmatched route.
+
+A 404 catch-all was added. It says "Not Found" and links back home. It
+doesn't win any design awards, but it is infinitely better than a blank
+screen that makes you think the internet is broken.
+
+* Fix 4: The Two Emoji Mismatch (A Cautionary Tale)
+
+This one is my favorite bug in the set, because it illustrates exactly
+how multi-component systems accumulate quiet inconsistencies.
+
+The frontend emoji bar had ten buttons. The backend had an
+=ALLOWED_EMOJIS= allowlist. These two lists were written by different
+agents, at different times, without reference to each other. The result:
+
+| Position | Frontend | Backend |
+|----------+----------+---------|
+| 9        | 💯        | 👎      |
+| 10       | 👀        | 🚀      |
+
+Two emojis on the frontend had no corresponding entry on the backend. If
+an audience member tapped 💯 or 👀, the server rejected the WebSocket
+message. No error shown to the user. The emoji just... didn't happen. It
+went into the void, like a complaint filed with the wrong department.
+
+Backend updated to match the frontend. But the second half of this
+commit was subtler.
+
+The Markdown parser was faithfully passing the raw =<!-- poll -->= HTML
+comment through to slide content. The frontend's =ReactMarkdown=
+component, not knowing what to do with it, was rendering poll options as
+a raw bulleted list inside the slide body. Slides that had polls were
+showing the poll options /twice/ — once in the poll widget, once as stray
+Markdown content.
+
+The parser now strips the poll block before handing off =slide.content=.
+The poll widget has it; the slide body doesn't. As intended.
+
+* Fix 5 and 6: The WebSocket Double-Mount Problem
+
+React's StrictMode is useful. In development, it intentionally mounts
+components /twice/ to help surface side effects that shouldn't exist.
+Most of the time this is a good thing. When you have a WebSocket
+connection lifecycle, this is a disaster.
+
+StrictMode mounts the component, the =useWebSocket= hook opens a
+connection. StrictMode immediately /unmounts/ it — tearing down the
+connection. StrictMode /remounts/ it, the hook opens another connection.
+First connection closed. Second connection trying to establish. The
+server is seeing a connect-close-connect cycle. The client is in a
+reconnect loop before it ever successfully receives a message.
+
+There were actually two attempts to address this. The first (Fix 5)
+added a =mountedRef= guard inside =useWebSocket= to try to survive the
+double-mount cycle gracefully. It also fixed a wrong payload type in
+the presenter's question notification handler — =QuestionReceivedPayload=
+where =QuestionNotifyPayload= was expected, a type mismatch that wouldn't
+be caught until runtime.
+
+The =mountedRef= guard helped but didn't fully solve it. The root cause
+was StrictMode itself, not a missing guard.
+
+Fix 6: remove =<React.StrictMode>= from the app entrypoint.
+
+This is the kind of decision that feels wrong — you're disabling a
+development tool — but the tradeoff is concrete. StrictMode's double-mount
+behavior is genuinely incompatible with persistent connections that have
+real side effects. The alternatives (complex effect cleanup, connection
+pooling, deferring the connection to a context provider that lives outside
+the StrictMode boundary) all add meaningful complexity for a benefit that
+doesn't survive to production anyway. StrictMode doesn't run in production
+builds. The bug it would catch is the one we already fixed.
+
+Removed. Noted. Moving on.
+
+* Fix 7 (the Feature): Slide Index on Q&A Questions
+
+Somewhere in the middle of all this firefighting, an actual feature
+arrived via Gas Town.
+
+The Q&A panel shows the presenter a list of submitted questions. That's
+useful. Knowing /which slide the audience member was on when they asked/
+is more useful — you can decide whether to address it now or wait until
+you reach that part of the deck.
+
+The data was already there. The backend was recording =slide_index= when
+questions came in. It just wasn't being surfaced in the presenter's view.
+
+This was filed as bead =ip-82l=, slung to the polecat "rust," built,
+and merged by the Refinery without any human intervention beyond the
+initial filing. Frontend =QuestionData= type got a =slide_index= field.
+The presenter's Q&A panel got a "Slide N" label next to each question.
+
+It's a small label. It will matter during an actual presentation. And it
+arrived fully formed in a merge commit while I was debugging WebSocket
+reconnection loops, which is the exact reason Gas Town exists.
+
+* The Dev Setup Gap
+
+While this was all happening, two quality-of-life files were added that
+probably should have existed since episode 02: a =dev.sh= script and a
+=README.md=.
+
+=dev.sh= spins up the backend and frontend in a single command — one
+script instead of remembering to activate a virtualenv in one tab,
+navigate to the frontend directory in another tab, and remember which
+port each service uses. The kind of thing you put off for weeks and then
+wonder why you kept paying the three-minute tax every time you wanted to
+test something.
+
+=README.md= explains how to actually run the project to a human who
+isn't already inside your head. Prerequisites, install steps, the =dev.sh=
+usage. Documentation written at the end, as nature intended.
+
+* What Actually Happened This Episode
+
+Looking at the commit list: seven commits, all fixes except one small
+feature. No new architecture. No new components. No new specs. Just
+finding out which parts of the system had never talked to each other,
+and introducing them.
+
+The QR code worked in isolation. The emoji reactions worked in isolation.
+The Q&A form worked in isolation. But the QR code pointed at the wrong
+URL. The emoji allowlists had diverged. The form was hidden under the
+bar. The WebSocket doubled up under StrictMode. The poll content leaked
+into the slide body.
+
+None of these were caught by the test suite because the test suite tested
+units, not journeys. No test said "scan a QR code, land on the audience
+page, tap 💯, and see it float up the presenter view." That's not a unit
+test. That's a user.
+
+The lesson, if there is one: the demo works before you demo it, and then
+it doesn't. Budget accordingly.
+
+* The Scorecard
+
+| What                            | Status                                         |
+|---------------------------------+------------------------------------------------|
+| QR code URL                     | Fixed (was /audience/:id, now correct path)    |
+| Q&A form overlap                | Fixed (above emoji bar, Enter to submit)       |
+| 404 catch-all route             | Added                                          |
+| Emoji allowlist mismatch        | Synced (💯 and 👀 now accepted)                |
+| Poll block in slide content     | Stripped by parser                             |
+| WebSocket StrictMode loop       | Resolved (StrictMode removed)                  |
+| Presenter type mismatch         | Fixed (correct payload type)                   |
+| Slide index on Q&A panel        | Added (bead ip-82l, autonomous Gas Town merge) |
+| dev.sh + README.md              | Added                                          |
+| New tests added                 | 0 (all fixes were integration-level)           |
+| Shame level                     | Appropriate but survivable                     |
+
+* What's Next
+
+The app is now feature-complete /and/ working, which is a different
+thing. The QR code lands where it should. The emojis go through. The
+questions appear with context. The WebSocket doesn't thrash.
+
+A real presentation. A real audience. That's the next test, and no
+amount of unit coverage can substitute for it.
+
+The backlog still has items — multi-presentation support, persistent poll
+results, presenter auth. But the core loop is intact: presenter loads a
+deck, audience scans the QR code, the room fills up, reactions float,
+questions accumulate, the presenter knows which slide each came from.
+
+The thing works. Time to find out if it works /well/.
+
+/Next episode: we put it in front of an actual audience, or we add more features to avoid doing that./
