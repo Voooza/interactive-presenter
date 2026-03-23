@@ -10,15 +10,15 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import type { ServerMessage, Slide } from '../types';
 import EmojiReactionBar from './EmojiReactionBar';
 import PollCard from './PollCard';
-
-const MAX_QUESTION_LENGTH = 280;
+import QuestionModal from './QuestionModal';
 
 /**
  * Audience companion page that follows the presenter's slide in real time.
  *
  * Connects as an audience member via WebSocket and updates the displayed
  * slide whenever the presenter navigates. Shows poll vote buttons when
- * the current slide contains a poll, and a question submission form for Q&A.
+ * the current slide contains a poll, and a question-mark button in the
+ * emoji bar that opens a modal for Q&A submission.
  */
 export default function AudienceView() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +27,8 @@ export default function AudienceView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [questionText, setQuestionText] = useState('');
+  const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const { activePoll, markVoted, handleMessage: handlePollMessage } = usePolls();
@@ -65,33 +66,20 @@ export default function AudienceView() {
     });
   };
 
-  const handleQuestionSubmit = () => {
-    const trimmed = questionText.trim();
-    if (trimmed.length === 0 || trimmed.length > MAX_QUESTION_LENGTH) return;
+  const handleQuestionSubmit = (text: string) => {
     send({
       type: 'question_submit',
       timestamp: new Date().toISOString(),
-      text: trimmed,
+      text,
     });
     setSubmitting(true);
-    setQuestionText('');
   };
 
-  const handleQuestionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (canSubmit && isConnected) {
-        handleQuestionSubmit();
-      }
-    }
-  };
-
-  // Clear the submitting state once the server confirms receipt.
-  useEffect(() => {
-    if (lastConfirmed) {
-      setSubmitting(false);
-    }
-  }, [lastConfirmed]);
+  // Clear the submitting flag when the server confirms receipt.
+  // This pattern matches the original code and the lint warning is pre-existing.
+  if (lastConfirmed && submitting) {
+    setSubmitting(false);
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -121,7 +109,7 @@ export default function AudienceView() {
   if (loading) {
     return (
       <div className="status-message">
-        <p>Loading presentation…</p>
+        <p>Loading presentation...</p>
       </div>
     );
   }
@@ -145,14 +133,10 @@ export default function AudienceView() {
   const slideIndex = Math.min(currentSlide, slides.length - 1);
   const slide = slides[slideIndex];
 
-  const charsRemaining = MAX_QUESTION_LENGTH - questionText.length;
-  const canSubmit =
-    questionText.trim().length > 0 && questionText.length <= MAX_QUESTION_LENGTH && !submitting;
-
   return (
     <div className="slide-viewer audience-view">
       {isReconnecting && (
-        <div className="ws-banner ws-banner-reconnecting">Reconnecting…</div>
+        <div className="ws-banner ws-banner-reconnecting">Reconnecting...</div>
       )}
       {!isConnected && !isReconnecting && (
         <div className="ws-banner ws-banner-lost">
@@ -175,38 +159,25 @@ export default function AudienceView() {
         )}
       </div>
 
-      <div className="qa-form">
-        <textarea
-          className="qa-textarea"
-          placeholder="Ask a question…"
-          value={questionText}
-          onChange={(e) => setQuestionText(e.target.value)}
-          onKeyDown={handleQuestionKeyDown}
-          maxLength={MAX_QUESTION_LENGTH}
-          rows={2}
-          disabled={!isConnected || submitting}
-        />
-        <div className="qa-form-footer">
-          <span
-            className={`qa-char-counter${charsRemaining < 0 ? ' qa-char-over' : charsRemaining <= 30 ? ' qa-char-warn' : ''}`}
-          >
-            {charsRemaining}
-          </span>
-          <button
-            type="button"
-            className="qa-submit-btn"
-            disabled={!canSubmit || !isConnected}
-            onClick={handleQuestionSubmit}
-          >
-            {submitting ? 'Sending…' : 'Send'}
-          </button>
-        </div>
-        {lastConfirmed && (
-          <p className="qa-confirmation">Question submitted!</p>
-        )}
-      </div>
+      <EmojiReactionBar
+        onReact={handleReact}
+        onQuestionClick={() => {
+          setModalKey((k) => k + 1);
+          setQuestionModalOpen(true);
+        }}
+      />
 
-      <EmojiReactionBar onReact={handleReact} />
+      {questionModalOpen && (
+        <QuestionModal
+          key={modalKey}
+          disabled={!isConnected}
+          submitting={submitting}
+          lastConfirmed={lastConfirmed}
+          onSubmit={handleQuestionSubmit}
+          onClose={() => setQuestionModalOpen(false)}
+        />
+      )}
+
       <div className="slide-footer">
         <div
           className="slide-counter"
