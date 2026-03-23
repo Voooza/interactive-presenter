@@ -128,20 +128,21 @@ The demo works before you demo it, and then it doesn't.
 - Tests? What tests?
 -->
 
-# What Works, What Doesn't
+# What Works
 
-**What works:**
 - Parallel feature development — real throughput gain
 - Witness as safety net — caught a false completion before it became a hidden problem
 - Refinery — autonomous merging without human babysitting
 - Isolated worktrees — polecats can't corrupt each other's state
 
-**What's surprising:**
+# What's Surprising
+
 - The CSS gap — parallel agents all add class names, nobody writes the CSS
 - False completions happen — agents can claim "done" with zero changes
 - Integration bugs accumulate silently across agent boundaries
 
-**Honest tradeoffs:**
+# Honest Tradeoffs
+
 - Coordination overhead is real — specs must be precise
 - The Mayor still does the unsexy work (gap patches, integration fixes)
 - More infrastructure to maintain than a single-agent workflow
