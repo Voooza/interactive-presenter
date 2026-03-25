@@ -441,14 +441,20 @@ body {
   bottom: 4rem;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  max-width: calc(100vw - 2rem);
   background-color: rgba(30, 30, 30, 0.9);
   border: 1px solid #444;
   border-radius: 999px;
   backdrop-filter: blur(8px);
   z-index: 150;
+}
+
+/* Inner flex row — measured for overflow to detect narrow viewports. */
+.reaction-bar-inner {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
 }
 
 .reaction-btn {
@@ -473,6 +479,142 @@ body {
 
 .reaction-btn:active {
   transform: scale(1.3);
+}
+
+/* ─── Reaction bar trigger (collapsed, narrow viewports) ───────────────── */
+.reaction-bar-trigger {
+  position: fixed;
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  font-size: 1.75rem;
+  background-color: rgba(30, 30, 30, 0.9);
+  border: 1px solid #444;
+  border-radius: 50%;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  z-index: 150;
+  transition: transform 0.1s ease, background-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reaction-bar-trigger:hover {
+  background-color: rgba(50, 50, 50, 0.95);
+}
+
+.reaction-bar-trigger:active {
+  transform: translateX(-50%) scale(1.15);
+}
+
+/* ─── Reaction modal (narrow viewports) ─────────────────────────────────── */
+.reaction-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 400;
+  padding: 0;
+}
+
+.reaction-modal {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  padding: 1.5rem 1.25rem 2.5rem;
+  background-color: rgba(25, 25, 25, 0.98);
+  border: 1px solid #444;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.reaction-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.reaction-modal-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.12s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reaction-modal-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.reaction-modal-btn:active {
+  transform: scale(1.25);
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.reaction-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.reaction-modal-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid #444;
+  border-radius: 12px;
+  color: #d0d0d0;
+  font-size: 1.1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reaction-modal-action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: #666;
+}
+
+.reaction-modal-action-icon {
+  font-size: 1.4rem;
+}
+
+.reaction-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  transition: color 0.12s ease;
+}
+
+.reaction-modal-close:hover {
+  color: #f0f0f0;
 }
 
 /* ─── Reaction overlay (presenter view) ────────────────────────────────── */

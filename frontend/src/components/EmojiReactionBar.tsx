@@ -1,14 +1,27 @@
 /**
- * Purely presentational component that renders the emoji reaction picker bar.
+ * Emoji reaction bar with responsive collapse behaviour.
  *
- * Displays one button per allowed emoji followed by an optional question
- * button separated by a divider. Calls `onReact` with the emoji character
- * when a reaction button is tapped and `onQuestionClick` when the question
- * button is tapped. Has no internal state or WebSocket awareness — rate
- * limiting is enforced server-side.
+ * On wide viewports the component renders an inline pill-shaped bar with one
+ * button per allowed emoji plus optional poll / question buttons.
+ *
+ * On narrow viewports — detected via a ResizeObserver watching the bar's own
+ * rendered width — the bar collapses to a single trigger button (😊). Tapping
+ * it opens a full-screen ReactionModal that shows all emojis in a grid. The
+ * modal closes on tap-outside or Escape.
+ *
+ * The breakpoint is content-driven: the bar switches to collapsed mode
+ * whenever it would be narrower than the natural width of all its buttons.
+ * No pixel constants are hardcoded.
+ *
+ * Implementation note: the full bar is always rendered (just hidden via
+ * aria-hidden + CSS visibility) so the ResizeObserver always has a live
+ * element to measure. This lets the bar expand again when the viewport widens.
  */
 
+import { useEffect, useRef, useState } from 'react';
+
 import { ALLOWED_EMOJIS } from '../types';
+import ReactionModal from './ReactionModal';
 
 /** Human-readable names for each emoji, used as accessible aria-labels. */
 const EMOJI_NAMES: Record<string, string> = {
@@ -31,43 +44,110 @@ interface EmojiReactionBarProps {
   hasPoll?: boolean;
 }
 
-export default function EmojiReactionBar({ onReact, onQuestionClick, onPollClick, hasPoll }: EmojiReactionBarProps) {
+export default function EmojiReactionBar({
+  onReact,
+  onQuestionClick,
+  onPollClick,
+  hasPoll,
+}: EmojiReactionBarProps) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // ResizeObserver watches the outer (constrained) bar. Whenever it resizes
+  // we compare the inner's natural scrollWidth against its constrained
+  // clientWidth. If the content would overflow, we collapse.
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+
+    const check = () => {
+      // scrollWidth reflects the content's natural width even with overflow:hidden.
+      setCollapsed(inner.scrollWidth > inner.clientWidth);
+    };
+
+    const observer = new ResizeObserver(check);
+    observer.observe(outer);
+    // Run once synchronously after mount so the initial state is correct.
+    check();
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="reaction-bar">
-      {ALLOWED_EMOJIS.map((emoji) => (
+    <>
+      {/* The full bar is always in the DOM so the ResizeObserver can measure
+          it. When collapsed we hide it visually and from assistive technology. */}
+      <div
+        ref={outerRef}
+        className="reaction-bar"
+        style={{ overflow: 'hidden', visibility: collapsed ? 'hidden' : undefined }}
+        aria-hidden={collapsed ? 'true' : undefined}
+      >
+        <div ref={innerRef} className="reaction-bar-inner">
+          {ALLOWED_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              className="reaction-btn"
+              aria-label={`Send ${emoji} ${EMOJI_NAMES[emoji] ?? ''} reaction`}
+              onClick={() => onReact(emoji)}
+              tabIndex={collapsed ? -1 : undefined}
+            >
+              {emoji}
+            </button>
+          ))}
+          {(onQuestionClick || (onPollClick && hasPoll)) && (
+            <div className="reaction-bar-divider" aria-hidden="true" />
+          )}
+          {onPollClick && hasPoll && (
+            <button
+              type="button"
+              className="reaction-btn reaction-btn-poll"
+              aria-label="Vote in poll"
+              onClick={onPollClick}
+              tabIndex={collapsed ? -1 : undefined}
+            >
+              🗳️
+            </button>
+          )}
+          {onQuestionClick && (
+            <button
+              type="button"
+              className="reaction-btn reaction-btn-question"
+              aria-label="Ask a question"
+              onClick={onQuestionClick}
+              tabIndex={collapsed ? -1 : undefined}
+            >
+              ❓
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Collapsed trigger — shown only when the bar doesn't fit. */}
+      {collapsed && (
         <button
-          key={emoji}
           type="button"
-          className="reaction-btn"
-          aria-label={`Send ${emoji} ${EMOJI_NAMES[emoji] ?? ''} reaction`}
-          onClick={() => onReact(emoji)}
+          className="reaction-bar-trigger"
+          aria-label="Open emoji reactions"
+          onClick={() => setModalOpen(true)}
         >
-          {emoji}
-        </button>
-      ))}
-      {(onQuestionClick || (onPollClick && hasPoll)) && (
-        <div className="reaction-bar-divider" aria-hidden="true" />
-      )}
-      {onPollClick && hasPoll && (
-        <button
-          type="button"
-          className="reaction-btn reaction-btn-poll"
-          aria-label="Vote in poll"
-          onClick={onPollClick}
-        >
-          🗳️
+          😊
         </button>
       )}
-      {onQuestionClick && (
-        <button
-          type="button"
-          className="reaction-btn reaction-btn-question"
-          aria-label="Ask a question"
-          onClick={onQuestionClick}
-        >
-          ❓
-        </button>
+
+      {/* Full-screen modal shown when the trigger is tapped. */}
+      {modalOpen && (
+        <ReactionModal
+          onReact={onReact}
+          onQuestionClick={onQuestionClick}
+          onPollClick={onPollClick}
+          hasPoll={hasPoll}
+          onClose={() => setModalOpen(false)}
+        />
       )}
-    </div>
+    </>
   );
 }
