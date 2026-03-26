@@ -134,7 +134,15 @@ export default function EmojiReactionBar({
           aria-label="Open emoji reactions"
           onClick={() => setModalOpen(true)}
         >
-          😊
+          {/* Show burger menu icon when collapsed */}
+          <span aria-hidden="true" style={{fontSize: '1.6em', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32}}>
+            {/* Accessible burger SVG instead of emoji */}
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect y="5" width="26" height="3" rx="1.5" fill="currentColor"/>
+              <rect y="11.5" width="26" height="3" rx="1.5" fill="currentColor"/>
+              <rect y="18" width="26" height="3" rx="1.5" fill="currentColor"/>
+            </svg>
+          </span>
         </button>
       )}
 
