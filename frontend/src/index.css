@@ -483,6 +483,7 @@ body {
 
 /* ─── Reaction bar trigger (collapsed, narrow viewports) ───────────────── */
 .reaction-bar-trigger {
+  color: #f0f0f0;
   position: fixed;
   bottom: 4rem;
   left: 50%;
